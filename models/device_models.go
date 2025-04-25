@@ -27,7 +27,7 @@ type Device struct {
 
 type IDeviceModels interface {
 	Get(id string) (Device, error)
-	List(group_list []int32) ([]Device, error)
+	List(groupList []string, page int, pageSize int, orderBY string) ([]Device, error)
 	Create(device *Device) error
 	Update(device *Device) error
 	Delete(id string) error
@@ -45,9 +45,20 @@ func (models *DeviceModels) Get(id string) (Device, error) {
 	return device, nil
 }
 
-func (models *DeviceModels) List(group_list []int32) ([]Device, error) {
+func (models *DeviceModels) Count(groupList []string) (int64, error) {
+	var total int64
+
+	result := db.Model(&Device{}).Where("status = true and group_id IN ?", groupList).Count(&total)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return total, nil
+}
+
+func (models *DeviceModels) List(groupList []string, limt int, offset int, orderBY string) ([]Device, error) {
 	var devices []Device
-	result := db.Find(&devices, "group_id IN ?", group_list)
+
+	result := db.Limit(limt).Offset(offset).Order(orderBY).Find(&devices, "status = true and group_id IN ?", groupList)
 	if result.Error != nil {
 		return nil, result.Error
 	}

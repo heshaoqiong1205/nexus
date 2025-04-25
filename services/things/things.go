@@ -29,6 +29,13 @@ type ActiveRequest struct {
 	Features     Features `json:"featrues"`
 }
 
+type DevicesQuery struct {
+	GroupList []string `json:"group_id"`
+	Page      int      `json:"page"`
+	PageSize  int      `json:"page_size"`
+	OrderBy   string   `json:"order_by"`
+}
+
 func NewThingService() *ThingService {
 	return &ThingService{
 		deviceModels:  &models.DeviceModels{},
@@ -108,6 +115,23 @@ func (service *ThingService) Active(request *ActiveRequest) (*IoTDevice, error) 
 		log.Println("========???========")
 		return NewIoTDevice(*device)
 	}
+}
+
+func (service *ThingService) GetDevices(query DevicesQuery) ([]*IoTDevice, error) {
+	devices, err := service.deviceModels.List(query.GroupList, query.Page, query.PageSize, query.OrderBy)
+	if err != nil {
+		return nil, err
+	}
+	var iotDevices []*IoTDevice
+	for _, device := range devices {
+		iotDevice, err := NewIoTDevice(device)
+		if err != nil {
+
+			return nil, err
+		}
+		iotDevices = append(iotDevices, iotDevice)
+	}
+	return iotDevices, nil
 }
 
 func (service *ThingService) RPC(request *ServiceRequest) (*ServiceResponse, error) {

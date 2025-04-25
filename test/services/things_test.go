@@ -19,7 +19,7 @@ func (m *MockDeviceModels) Get(licenseID string) (models.Device, error) {
 	return models.Device{}, nil
 }
 
-func (m *MockDeviceModels) List(group_list []int32) ([]models.Device, error) {
+func (m *MockDeviceModels) List(group_list []string, page int, pageSize int, orderBY string) ([]models.Device, error) {
 	return []models.Device{}, nil
 }
 

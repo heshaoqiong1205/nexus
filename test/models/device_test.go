@@ -96,18 +96,42 @@ func TestGetDevice(t *testing.T) {
 	}
 }
 
-func TestGetDevices(t *testing.T) {
+func TestCount(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
-	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE group_id IN \\(\\$1\\)").
-		WithArgs(1010).
+	groupIDs := []string{"1010", "2020"}
+	mock.ExpectQuery("SELECT count\\(\\*\\) FROM \"devices\" WHERE status = true and group_id IN \\(\\$1,\\$2\\)").WithArgs("1010", "2020").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+
+	models.MockSetup(db)
+	count, Error := testDeivcesModels.Count(groupIDs)
+	if Error != nil {
+		t.Errorf("Expected a non-nil device %s", Error)
+	}
+	expect := int64(2)
+	assert.Equal(t, expect, count, "they should be equal")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestList(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	groupIDs := []string{"1010", "2020"}
+	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE status = true and group_id IN \\(\\$1,\\$2\\) ORDER BY created_at desc LIMIT \\$3 OFFSET \\$4").
+		WithArgs("1010", "2020", 100, 10).
 		WillReturnRows(mockDevicesRows())
 
 	models.MockSetup(db)
-	devices, Error := testDeivcesModels.List([]int32{1010})
+	devices, Error := testDeivcesModels.List(groupIDs, 100, 10, "created_at desc")
 	if Error != nil {
 		t.Errorf("Expected a non-nil device %s", Error)
 	}
