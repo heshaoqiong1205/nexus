@@ -28,17 +28,16 @@ func mockLicense() models.License {
 }
 
 func TestGetLicense(t *testing.T) {
-	mockDB, mock, err := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("failed to open mock database: %s", err)
 	}
-	defer mockDB.Close()
 
 	mock.ExpectQuery("SELECT \\* FROM \"licenses\" WHERE id = \\$1").
 		WithArgs("1234567890").
 		WillReturnRows(mockLicenseRows())
 
-	models.MockSetup(mockDB)
+	models.MockSetup(db)
 	license, err := testLicenseModels.Get("1234567890")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -46,14 +45,16 @@ func TestGetLicense(t *testing.T) {
 
 	expected := mockLicense()
 	assert.Equal(t, expected, license, "they should be equal")
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 }
 
 func TestCreateLicense(t *testing.T) {
-	mockDB, mock, err := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("failed to open mock database: %s", err)
 	}
-	defer mockDB.Close()
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO \"licenses\"").
@@ -61,10 +62,14 @@ func TestCreateLicense(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	models.MockSetup(mockDB)
+	models.MockSetup(db)
 	lincese := mockLicense()
 	err = testLicenseModels.Create(&lincese)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }

@@ -7,5 +7,7 @@ import (
 
 func main() {
 	setting.Setup()
-	http_server.Run()
+	if http_server.Run() != nil {
+		panic("Failed to start HTTP server")
+	}
 }

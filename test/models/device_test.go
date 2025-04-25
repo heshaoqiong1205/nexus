@@ -78,7 +78,6 @@ func TestGetDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE id = \\$1").
 		WithArgs("d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a").
@@ -91,6 +90,10 @@ func TestGetDevice(t *testing.T) {
 	}
 	expect := mockDevice0()
 	assert.Equal(t, expect, device, "they should be equal")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
 }
 
 func TestGetDevices(t *testing.T) {
@@ -98,7 +101,6 @@ func TestGetDevices(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE group_id IN \\(\\$1\\)").
 		WithArgs(1010).
@@ -111,6 +113,11 @@ func TestGetDevices(t *testing.T) {
 	}
 	expect := []models.Device{mockDevice0(), mockDevice1()}
 	assert.Equal(t, expect, devices, "they should be equal")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
 }
 
 func TestCreateDevice(t *testing.T) {
@@ -118,7 +125,6 @@ func TestCreateDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO \"devices\"").
@@ -139,7 +145,6 @@ func TestUpdateDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	mock.ExpectBegin()
 	mock.ExpectExec("UPDATE \"devices\" SET").
@@ -153,4 +158,9 @@ func TestUpdateDevice(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected a non-nil device %s", err)
 	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
 }

@@ -37,7 +37,6 @@ func TestGetProduct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	product := mockProduct()
 	rows := mockProductRows(product)
@@ -51,6 +50,11 @@ func TestGetProduct(t *testing.T) {
 		t.Errorf("Error getting product: %v", err)
 	}
 	assert.Equal(t, product, result, "they should be equal")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
 }
 
 func TestCreateProduct(t *testing.T) {
@@ -58,7 +62,6 @@ func TestCreateProduct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	product := mockProduct()
 	mock.ExpectBegin()
@@ -69,11 +72,18 @@ func TestCreateProduct(t *testing.T) {
 
 	models.MockSetup(db)
 	var featrues []string
-	json.Unmarshal(product.RequiredFeatures, &featrues)
+	if json.Unmarshal(product.RequiredFeatures, &featrues) != nil {
+		t.Errorf("Error unmarshalling required features: %v", err)
+	}
 	err = testProductModels.Create(&product)
 	if err != nil {
 		t.Errorf("Expected a non-nil product: %v", err)
 	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
 }
 
 func TestUpdateProduct(t *testing.T) {
@@ -81,7 +91,6 @@ func TestUpdateProduct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-	defer db.Close()
 
 	product := mockProduct()
 
@@ -95,5 +104,9 @@ func TestUpdateProduct(t *testing.T) {
 	err = testProductModels.Update(&product)
 	if err != nil {
 		t.Errorf("Error updating product: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
