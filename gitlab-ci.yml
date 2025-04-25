@@ -1,0 +1,44 @@
+image: golang:1.18
+
+
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+cache:
+  paths:
+    - /go/pkg/mod
+    - .cache/go-build
+
+lint:
+  stage: lint
+  script:
+    - go fmt ./...
+    - go vet ./...
+    - golint ./...
+
+test:
+  stage: test
+  script:
+    - go test -v -coverprofile=coverage.out ./...
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.out
+
+build:
+  stage: build
+  script:
+    - go build -o nexus .
+  artifacts:
+    paths:
+      - nexus
+    expire_in: 1 week
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
