@@ -1,0 +1,48 @@
+
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+default:
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - /go/pkg/mod
+      - .cache/go-build
+    policy: pull-push
+  image: registry.shdocker.tuya-inc.top/tuya-base/penglai/compile/golang:1.24.0-alpine-20250228
+  before_script:
+    - wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s v2.1.5
+    - export PATH="$PATH:./bin"
+    - golangci-lint --version
+
+
+lint:
+  stage: lint
+  script:
+    - go fmt ./...
+    - go vet ./...
+    - golangci-lint run ./...
+
+test:
+  stage: test
+  script:
+    - go test -v -coverpkg=./... -coverprofile=profile.cov ./...
+    - go tool cover -func profile.cov
+  coverage: '/\(statements\)(?:\s+)?(\d+(?:\.\d+)?%)/'
+
+build:
+  stage: build
+  script:
+    - go build -o nexus .
+  artifacts:
+    paths:
+      - nexus
+    expire_in: 1 week
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
