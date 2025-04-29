@@ -4,17 +4,18 @@ import (
 	"errors"
 	"nexus/models"
 	"nexus/services/auth"
+	"time"
 )
 
 type UserDetails struct {
-	Account       string `json:"account"`
-	Username      string `json:"username"`
-	Region        string `json:"region"`
-	Location      string `json:"location"`
-	Icon          string `json:"icon"`
-	Role          string `json:"role"`
-	LastLoginTime string `json:"last_login_time"`
-	SginUpAt      string `json:"sgin_up_at"`
+	Account       string    `json:"account"`
+	Username      string    `json:"username"`
+	Region        string    `json:"region"`
+	Location      string    `json:"location"`
+	Icon          string    `json:"icon"`
+	Role          string    `json:"role"`
+	LastLoginTime time.Time `json:"last_login_time"`
+	SginUpAt      time.Time `json:"sgin_up_at"`
 }
 
 type UserService struct {
@@ -29,8 +30,12 @@ type ModifyUserRequest struct {
 }
 
 type IUserService interface {
-	SginUp(account string, password string, username string, region string) (models.User, error)
-	SginIn(account string, password string) ([]models.User, error)
+	SignUp(account string, password string, username string, region string) (models.User, error)
+	SignIn(account string, password string) ([]models.User, error)
+	Get(id string) (models.User, error)
+	GetByAccount(account string) (models.User, error)
+	SearchByAccount(LikeAccount string, limt int, offset int, orderBY string) ([]models.User, error)
+	Update(modify ModifyUserRequest) error
 }
 
 func NewUserService() *UserService {
@@ -45,12 +50,16 @@ func NewUserServiceWithModel(userModels models.IUserModels) *UserService {
 	}
 }
 
-func (service *UserService) SginUp(account string, password string, username string, region string) (*UserDetails, error) {
+func (service *UserService) SignUp(account string, password string, username string, region string) (*UserDetails, error) {
 	user := models.User{
-		Account:  account,
-		Password: password,
-		Username: username,
-		Region:   region,
+		Account:       account,
+		Password:      password,
+		Username:      username,
+		Region:        region,
+		Role:          "user",
+		LastLoginTime: time.Now(),
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 	err := service.userModels.Create(&user)
 	if err != nil {
@@ -60,12 +69,15 @@ func (service *UserService) SginUp(account string, password string, username str
 		Account:       user.Account,
 		Username:      user.Username,
 		Region:        user.Region,
-		LastLoginTime: user.LastLoginTime.String(),
-		SginUpAt:      user.CreatedAt.String(),
+		Role:          user.Role,
+		Location:      user.Location,
+		Icon:          user.Icon,
+		LastLoginTime: user.LastLoginTime,
+		SginUpAt:      user.CreatedAt,
 	}, nil
 }
 
-func (service *UserService) SginIn(account string, password string) (string, error) {
+func (service *UserService) SignIn(account string, password string) (string, error) {
 	user, err := service.userModels.GetByAccount(account)
 	if err != nil {
 		return "", errors.New("account and password is not correct")
@@ -88,8 +100,8 @@ func (service *UserService) Get(id string) (*UserDetails, error) {
 		Location:      user.Location,
 		Icon:          user.Icon,
 		Role:          user.Role,
-		LastLoginTime: user.LastLoginTime.String(),
-		SginUpAt:      user.CreatedAt.String(),
+		LastLoginTime: user.LastLoginTime,
+		SginUpAt:      user.CreatedAt,
 	}, nil
 }
 
@@ -105,8 +117,8 @@ func (service *UserService) GetByAccount(account string) (*UserDetails, error) {
 		Location:      user.Location,
 		Icon:          user.Icon,
 		Role:          user.Role,
-		LastLoginTime: user.LastLoginTime.String(),
-		SginUpAt:      user.CreatedAt.String(),
+		LastLoginTime: user.LastLoginTime,
+		SginUpAt:      user.CreatedAt,
 	}, nil
 }
 
@@ -124,8 +136,8 @@ func (service *UserService) SearchByAccount(LikeAccount string, limt int, offset
 			Location:      user.Location,
 			Icon:          user.Icon,
 			Role:          user.Role,
-			LastLoginTime: user.LastLoginTime.String(),
-			SginUpAt:      user.CreatedAt.String(),
+			LastLoginTime: user.LastLoginTime,
+			SginUpAt:      user.CreatedAt,
 		})
 	}
 	return userDetails, nil
