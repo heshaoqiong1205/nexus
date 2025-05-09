@@ -9,12 +9,45 @@ import (
 	"log"
 	"nexus/models"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type ThingService struct {
 	deviceModels  models.IDeviceModels
 	licenseModels models.ILicenseModels
 	productModels models.IProductModels
+}
+
+type ServiceRequest struct {
+	DeviceID      string `json:"device_id"`
+	Method        string `json:"method"`
+	TransactionID string `json:"transaction_id"`
+	Data          []byte `json:"data"`
+}
+
+type ServiceResponse struct {
+	DeviceID      string `json:"device_id"`
+	TransactionID string `json:"transaction_id"`
+	Data          []byte `json:"data"`
+}
+
+type IResponse interface {
+	SetResult(result bool)
+	SetMessage(message string)
+}
+
+type BaseResponse struct {
+	Result  bool   `json:"result"`
+	Message string `json:"message"`
+}
+
+func (r *BaseResponse) SetResult(result bool) {
+	r.Result = result
+}
+
+func (r *BaseResponse) SetMessage(message string) {
+	r.Message = message
 }
 
 type ActiveRequest struct {
@@ -34,6 +67,15 @@ type DevicesQuery struct {
 	Page      int      `json:"page"`
 	PageSize  int      `json:"page_size"`
 	OrderBy   string   `json:"order_by"`
+}
+
+func newServiceRequest(method string, deviceID string, data []byte) *ServiceRequest {
+	return &ServiceRequest{
+		DeviceID:      deviceID,
+		Method:        method,
+		TransactionID: uuid.NewString(),
+		Data:          data,
+	}
 }
 
 func NewThingService() *ThingService {
@@ -134,7 +176,30 @@ func (service *ThingService) GetDevices(query DevicesQuery) ([]*IoTDevice, error
 	return iotDevices, nil
 }
 
-func (service *ThingService) RPC(request *ServiceRequest) (*ServiceResponse, error) {
+func (service *ThingService) RPC(deviceID, method string, payload interface{}, response IResponse) {
+	response.SetResult(false)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		response.SetMessage(err.Error())
+		return
+	}
+	req := newServiceRequest(method, deviceID, data)
+	resp, err := service.rpc(req)
+	if err != nil {
+		response.SetMessage(err.Error())
+		return
+	}
+	if response != nil {
+		err = json.Unmarshal(resp.Data, response)
+		if err != nil {
+			response.SetMessage(err.Error())
+			return
+		}
+		return
+	}
+}
+
+func (service *ThingService) rpc(request *ServiceRequest) (*ServiceResponse, error) {
 	device, err := service.deviceModels.Get(request.DeviceID)
 	if err != nil {
 		return nil, errors.New("device not found")
@@ -145,7 +210,6 @@ func (service *ThingService) RPC(request *ServiceRequest) (*ServiceResponse, err
 	response := &ServiceResponse{
 		DeviceID:      request.DeviceID,
 		TransactionID: request.TransactionID,
-		Result:        "success",
 		Data:          request.Data,
 	}
 	return response, nil
