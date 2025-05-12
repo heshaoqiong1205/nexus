@@ -12,7 +12,7 @@ import (
 var testMessageModels models.MessageModels
 
 func mockMessagesRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "user_id", "type", "content", "created", "updated", "status"}).
+	return sqlmock.NewRows([]string{"id", "user_id", "type", "content", "created_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockMessage0())...).
 		AddRow(StructToSlice(mockMessage1())...)
 }
