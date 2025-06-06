@@ -119,7 +119,7 @@ func TestDevicesCount(t *testing.T) {
 	}
 }
 
-func TestList(t *testing.T) {
+func TestDeviceList(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
