@@ -8,6 +8,7 @@ import (
 
 type Device struct {
 	ID         string `gorm:"primaryKey"`
+	SecretKey  string
 	LicenseID  string
 	Name       string
 	ProductID  string
