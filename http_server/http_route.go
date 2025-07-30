@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"net/http"
-	"nexus/services/config"
+	"nexus/pkg/setting"
 	"nexus/services/storage"
 	"nexus/services/things"
 	"strings"
@@ -40,7 +40,7 @@ type Response struct {
 
 type ActiveResult struct {
 	Device *things.IoTDevice `json:"device"`
-	Config *config.ThingsConfig `json:"config"`
+	Config *setting.ThingsConfig `json:"config"`
 }
 
 func Run() error {
@@ -61,6 +61,8 @@ func Run() error {
 	// Device config
 	route.GET("/things/device/config", getDeviceConfig)
 	// Device get config
+
+	route.GET("/things/device/credentials", generateGetStorageCredentials)
 
     return route.Run(":8080")
 }
@@ -116,7 +118,7 @@ func DeviceAuthMiddleware() gin.HandlerFunc {
         }
 
         // Read request body
-        bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+        bodyBytes, err := io.ReadAll(c.Request.Body)
         if err != nil {
             c.JSON(http.StatusInternalServerError, Response{
                 Success: false,
@@ -127,7 +129,7 @@ func DeviceAuthMiddleware() gin.HandlerFunc {
         }
 
         // Restore the request body for next handlers
-        c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+        c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
         // Calculate body digest
         h := sha256.New()
@@ -196,7 +198,7 @@ func deactivateDevice(c *gin.Context) {
 
 	result := ActiveResult{
 		Device: nil, // Device is deactivated, so we return nil
-		Config: config.GetThingsConfig(),
+		Config: setting.GetThingsConfig(),
 	}
 	c.JSON(http.StatusOK, Response{
 		Success: true,
@@ -207,7 +209,7 @@ func deactivateDevice(c *gin.Context) {
 
 
 func getDeviceConfig(c *gin.Context) {
-	config := config.GetThingsConfig()
+	config := setting.GetThingsConfig()
 	c.JSON(http.StatusOK, Response{
 		Success: true,
 		Result:  config,
