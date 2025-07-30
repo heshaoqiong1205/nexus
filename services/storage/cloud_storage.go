@@ -53,21 +53,30 @@ type ICloudStorageService interface {
 }
 
 type CloudStorageService struct {
-	cloudStorateModels models.ICloudStorageModels
+	cloudStorageModels models.ICloudStorageModels
 	bucketService      IBucketService
 	stsService         external_storage.IStsService
 }
 
-func NewCloudStorageService(cloudStorateModels models.ICloudStorageModels, bucketService IBucketService, stsService external_storage.IStsService) *CloudStorageService {
+func NewCloudStorageService() *CloudStorageService {
 	return &CloudStorageService{
-		cloudStorateModels,
+		cloudStorageModels: &models.CloudStorageModels{},
+		bucketService:      NewBucketService(),
+		stsService:         external_storage.NewStsService(),
+	}
+}
+
+
+func NewCloudStorageServiceWithModels(cloudStorageModels models.ICloudStorageModels, bucketService IBucketService, stsService external_storage.IStsService) *CloudStorageService {
+	return &CloudStorageService{
+		cloudStorageModels,
 		bucketService,
 		stsService,
 	}
 }
 
 func (cs *CloudStorageService) GetCloudStorage(id string) (CloudStorage, error) {
-	cloudStorage, err := cs.cloudStorateModels.Get(id)
+	cloudStorage, err := cs.cloudStorageModels.Get(id)
 	if err != nil {
 		return CloudStorage{}, err
 	}
@@ -84,7 +93,7 @@ func (cs *CloudStorageService) GetCloudStorage(id string) (CloudStorage, error) 
 }
 
 func (cs *CloudStorageService) GetCloudStorageByDeviceID(deviceID string) ([]CloudStorage, error) {
-	cloudStorages, err := cs.cloudStorateModels.GetByDeviceID(deviceID)
+	cloudStorages, err := cs.cloudStorageModels.GetByDeviceID(deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +130,7 @@ func (cs *CloudStorageService) UpdateCloudStorage(storage *CloudStorage) error {
 		return err
 	}
 
-	return cs.cloudStorateModels.Update(&models.CloudStorage{
+	return cs.cloudStorageModels.Update(&models.CloudStorage{
 		ID:       storage.ID,
 		DeviceID: storage.DeviceID,
 		Tos:      storage.Tos,
@@ -132,7 +141,7 @@ func (cs *CloudStorageService) UpdateCloudStorage(storage *CloudStorage) error {
 }
 
 func (cs *CloudStorageService) GetStorageConfigs(deviceID string) ([]StorageConfig, error) {
-	cloudStorages, err := cs.cloudStorateModels.GetByDeviceID(deviceID)
+	cloudStorages, err := cs.cloudStorageModels.GetByDeviceID(deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +170,7 @@ func (cs *CloudStorageService) GetStorageCredentials(actions []external_storage.
 	if len(actions) == 0 {
 		return nil, errors.New("actions cannot be empty")
 	}
-	cloudStorages, err := cs.cloudStorateModels.GetByDeviceID(deviceID)
+	cloudStorages, err := cs.cloudStorageModels.GetByDeviceID(deviceID)
 	if err != nil {
 		return nil, err
 	}

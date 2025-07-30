@@ -129,7 +129,7 @@ func TestGetCloudStorage(t *testing.T) {
 	bucketService := new(MockBucketService)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := external_storage.NewStsService()
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 	mockCloudStorageModels.On("Get", "test-storage").Return(models.CloudStorage{
 		ID:       "test-storage",
 		DeviceID: "device-1",
@@ -156,10 +156,10 @@ func TestGetCloudStorage(t *testing.T) {
 func TestGetCloudStorageNotFound(t *testing.T) {
 	// Test the GetCloudStorage method with an invalid ID
 	mockBucketModels := new(MockBucketModels)
-	bucketService := storage.NewBucketService(mockBucketModels)
+	bucketService := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := external_storage.NewStsService()
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 	mockCloudStorageModels.On("Get", "invalid-storage").Return(models.CloudStorage{}, errors.New("not found")).Once()
 	_, err := service.GetCloudStorage("invalid-storage")
 
@@ -174,10 +174,10 @@ func TestGetCloudStorageNotFound(t *testing.T) {
 func TestGetCloudStorageByDeviceID(t *testing.T) {
 	// Test the GetCloudStorageByDeviceID method
 	mockBucketModels := new(MockBucketModels)
-	bucketService := storage.NewBucketService(mockBucketModels)
+	bucketService := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := external_storage.NewStsService()
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 	mockCloudStorageModels.On("GetByDeviceID", "device-1").Return([]models.CloudStorage{
 		{
 			ID:       "storage-1",
@@ -207,10 +207,10 @@ func TestGetCloudStorageByDeviceID(t *testing.T) {
 func TestUpdateCloudStorage(t *testing.T) {
 	// Test the UpdateCloudStorage method
 	mockBucketModels := new(MockBucketModels)
-	bucketService := storage.NewBucketService(mockBucketModels)
+	bucketService := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := external_storage.NewStsService()
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 	storageConfig := &storage.CloudStorage{
 		ID:       "existing-storage",
 		DeviceID: "device-1",
@@ -252,7 +252,7 @@ func TestGetStorageConfigs(t *testing.T) {
 	bucketService := new(MockBucketService)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := external_storage.NewStsService()
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 
 	mockCloudStorageModels.On("GetByDeviceID", "device-1").Return([]models.CloudStorage{
 		{
@@ -293,7 +293,7 @@ func TestGetStorageCredentials(t *testing.T) {
 	bucketService := new(MockBucketService)
 	mockCloudStorageModels := new(MockCloudStorageModels)
 	stsService := new(MockStsService)
-	service := storage.NewCloudStorageService(mockCloudStorageModels, bucketService, stsService)
+	service := storage.NewCloudStorageServiceWithModels(mockCloudStorageModels, bucketService, stsService)
 
 	mockCloudStorageModels.On("GetByDeviceID", "device-1").Return([]models.CloudStorage{
 		{

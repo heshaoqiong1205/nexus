@@ -28,7 +28,13 @@ type BucketService struct {
 	bucketModels models.IBucketModels
 }
 
-func NewBucketService(bucketModels models.IBucketModels) IBucketService {
+func NewBucketService() IBucketService {
+	return &BucketService{
+		bucketModels: &models.BucketModels{},
+	}
+}
+
+func NewBucketServiceWithModels(bucketModels models.IBucketModels) IBucketService {
 	return &BucketService{
 		bucketModels: bucketModels,
 	}

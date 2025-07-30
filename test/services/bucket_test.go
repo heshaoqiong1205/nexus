@@ -62,7 +62,7 @@ func (m *MockBucketModels) Delete(id string) error {
 func TestGetBucket(t *testing.T) {
 	// Test the GetBucket method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockBucketModels.On("Get", "test-bucket").Return(models.Bucket{
 		ID:        "test-bucket",
 		Name:      "Test Bucket",
@@ -92,7 +92,7 @@ func TestGetBucket(t *testing.T) {
 func TestGetBucketNotFound(t *testing.T) {
 	// Test the GetBucket method with an invalid bucket name
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockBucketModels.On("Get", "invalid-bucket").Return(models.Bucket{}, errors.New("not found")).Once()
 	_, err := service.GetBucket("invalid-bucket")
 
@@ -107,7 +107,7 @@ func TestGetBucketNotFound(t *testing.T) {
 func TestGetBucketByName(t *testing.T) {
 	// Test the GetBucketByName method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockBucketModels.On("GetByName", "test-bucket").Return(models.Bucket{
 		ID:        "test-bucket",
 		Name:      "Test Bucket",
@@ -135,7 +135,7 @@ func TestGetBucketByName(t *testing.T) {
 func TestListBuckets(t *testing.T) {
 	// Test the ListBuckets method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	mockBucketModels.On("List", 10, 0, "name").Return([]models.Bucket{
 		{
 			ID:        "test-bucket-1",
@@ -183,7 +183,7 @@ func TestListBuckets(t *testing.T) {
 func TestCreateBucket(t *testing.T) {
 	// Test the CreateBucket method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	bucketConfig := storage.BucketConfig{
 		ID:       "new-bucket",
 		Name:     "New Bucket",
@@ -210,7 +210,7 @@ func TestCreateBucket(t *testing.T) {
 func TestUpdateBucket(t *testing.T) {
 	// Test the UpdateBucket method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	bucketConfig := storage.BucketConfig{
 		ID:       "existing-bucket",
 		Name:     "Updated Bucket",
@@ -246,7 +246,7 @@ func TestUpdateBucket(t *testing.T) {
 func TestDeleteBucket(t *testing.T) {
 	// Test the DeleteBucket method
 	mockBucketModels := new(MockBucketModels)
-	service := storage.NewBucketService(mockBucketModels)
+	service := storage.NewBucketServiceWithModels(mockBucketModels)
 	bucketID := "bucket-to-delete"
 
 	mockBucketModels.On("Delete", bucketID).Return(nil).Once()
