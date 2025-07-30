@@ -59,7 +59,7 @@ type ActiveRequest struct {
 	SDKVersion   string   `json:"sdk_version"`
 	IP           string   `json:"ip"`
 	State        state    `json:"state"`
-	Features     Features `json:"featrues"`
+	Features     Features `json:"features"`
 }
 
 type DevicesQuery struct {
@@ -157,6 +157,37 @@ func (service *ThingService) Active(request *ActiveRequest) (*IoTDevice, error) 
 		log.Println("========???========")
 		return NewIoTDevice(*device)
 	}
+}
+
+func (service *ThingService) Deactivate(deviceID string) error {
+	if deviceID == "" {
+		return errors.New("device id cannot be empty")
+	}
+	device, err := service.deviceModels.Get(deviceID)
+	if err != nil {
+		return errors.New("device not found")
+	}
+	if !device.Status {
+		return errors.New("device is not active")
+	}
+	device.Status = false
+	device.UpdatedAt = time.Now()
+	err = service.deviceModels.Update(&device)
+	if err != nil {
+		return errors.New("failed to update device status")
+	}
+	return nil
+}
+
+func (service *ThingService) GetDevice(deviceID string) (*IoTDevice, error) {
+	if deviceID == "" {
+		return nil, errors.New("device id cannot be empty")
+	}
+	device, err := service.deviceModels.Get(deviceID)
+	if err != nil {
+		return nil, errors.New("device not found")
+	}
+	return NewIoTDevice(device)
 }
 
 func (service *ThingService) GetDevices(query DevicesQuery) ([]*IoTDevice, error) {

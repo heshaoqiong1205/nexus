@@ -69,12 +69,12 @@ func (s *storage) Validate() error {
 	return nil
 }
 
-type recored struct {
+type record struct {
 	Mode     *string `json:"mode"`
 	Duration *int    `json:"duration"`
 }
 
-func (r *recored) Validate() error {
+func (r *record) Validate() error {
 	if r.Mode == nil {
 		return fmt.Errorf("record mode cannot be nil")
 	}
@@ -143,13 +143,13 @@ func (p *point) Validate() error {
 	return nil
 }
 
-type crusise struct {
+type cruise struct {
 	Status      *string `json:"status"`
 	PresetPoint []point `json:"preset_point"`
 	Route       []int   `json:"route"`
 }
 
-func (c *crusise) Validate() error {
+func (c *cruise) Validate() error {
 	if c.Status == nil {
 		return fmt.Errorf("crusise status cannot be nil")
 	}
@@ -191,10 +191,10 @@ func (s *siren) Validate() error {
 type state struct {
 	Video            *video     `json:"video"`
 	Storage          *storage   `json:"storage"`
-	Recored          *recored   `json:"recored"`
+	Record          *record   `json:"record"`
 	MotionDetection  *vmd       `json:"motion_detection"`
 	DecibelDetection *detection `json:"decibel_detection"`
-	Crusise          *crusise   `json:"crusise"`
+	Cruise          *cruise   `json:"cruise"`
 	Siren            *siren     `json:"siren"`
 	Volume           *int       `json:"volume"`
 	PrivacyMode      *bool      `json:"privacy_mode"`
@@ -213,8 +213,8 @@ func (state *state) Validate() error {
 			return err
 		}
 	}
-	if state.Recored != nil {
-		if err := state.Recored.Validate(); err != nil {
+	if state.Record != nil {
+		if err := state.Record.Validate(); err != nil {
 			return err
 		}
 	}
@@ -228,8 +228,8 @@ func (state *state) Validate() error {
 			return err
 		}
 	}
-	if state.Crusise != nil {
-		if err := state.Crusise.Validate(); err != nil {
+	if state.Cruise != nil {
+		if err := state.Cruise.Validate(); err != nil {
 			return err
 		}
 	}

@@ -6,7 +6,8 @@ import (
 )
 
 type IoTDevice struct {
-	ID         string   `json:"id" gorm:"primaryKey"`
+	ID         string   `json:"id"`
+	SecretKey  string   `json:"secret_key"`
 	Name       string   `json:"name"`
 	ProductID  string   `json:"product_id"`
 	GroupID    string   `json:"group_id"`
@@ -35,6 +36,7 @@ func NewIoTDevice(device models.Device) (*IoTDevice, error) {
 	}
 	return &IoTDevice{
 		ID:         device.ID,
+		SecretKey:  device.SecretKey,
 		Name:       device.Name,
 		ProductID:  device.ProductID,
 		GroupID:    device.GroupID,
@@ -44,6 +46,7 @@ func NewIoTDevice(device models.Device) (*IoTDevice, error) {
 		SDKVersion: device.SDKVersion,
 		IP:         device.IP,
 		Online:     device.Online,
+		Location:   location{Latitude: nil, Longitude: nil}, // Default location
 		Status:     device.Status,
 	}, nil
 }
