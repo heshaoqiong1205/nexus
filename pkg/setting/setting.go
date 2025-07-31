@@ -28,6 +28,7 @@ type Database struct {
 	Password    string
 	Host        string
 	Name        string
+	Port        int
 	TablePrefix string
 }
 

@@ -19,7 +19,7 @@ type Device struct {
 	SDKVersion string
 	IP         string
 	Online     bool
-	Location   string
+	Location   *Point `gorm:"type:point"`
 	CreatedAt  time.Time
 	ActiveAt   time.Time
 	UpdatedAt  time.Time `gorm:"autoUpdateTime:false"`
@@ -28,7 +28,7 @@ type Device struct {
 
 type IDeviceModels interface {
 	Get(id string) (Device, error)
-	List(groupList []string, page int, pageSize int, orderBY string) ([]Device, error)
+	List(groupList []string, page int, pageSize int, orderBY *string) ([]Device, error)
 	Create(device *Device) error
 	Update(device *Device) error
 	Delete(id string) error
@@ -39,7 +39,7 @@ type DeviceModels struct {
 
 func (models *DeviceModels) Get(id string) (Device, error) {
 	var device Device
-	result := db.Find(&device, "id = ?", id)
+	result := db.First(&device, "id = ?", id)
 	if result.Error != nil {
 		return Device{}, result.Error
 	}
@@ -56,10 +56,16 @@ func (models *DeviceModels) Count(groupList []string) (int64, error) {
 	return total, nil
 }
 
-func (models *DeviceModels) List(groupList []string, limt int, offset int, orderBY string) ([]Device, error) {
+func (models *DeviceModels) List(groupList []string, page int, pageSize int, orderBY *string) ([]Device, error) {
+	limit := pageSize
+	offset := (page - 1) * pageSize
 	var devices []Device
 
-	result := db.Limit(limt).Offset(offset).Order(orderBY).Find(&devices, "status = true and group_id IN ?", groupList)
+	if orderBY == nil {
+		defaultOrder := "created_at desc"
+		orderBY = &defaultOrder
+	}
+	result := db.Where("status = true and group_id IN ?", groupList).Order(*orderBY).Limit(limit).Offset(offset).Find(&devices)
 	if result.Error != nil {
 		return nil, result.Error
 	}

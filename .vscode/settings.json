@@ -1,6 +1,19 @@
 {
     "cSpell.words": [
+        "aliyun",
         "datatypes",
-        "gorm"
+        "gorm",
+        "IDGV",
+        "PCMA",
+        "PCMU",
+        "PGPASSWORD",
+        "Presign",
+        "psql",
+        "rabbitmq",
+        "sqlmock",
+        "SRTP",
+        "stretchr",
+        "upnp",
+        "webrtc"
     ]
 }

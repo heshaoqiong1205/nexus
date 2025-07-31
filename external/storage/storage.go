@@ -37,6 +37,8 @@ func (ss *StorageService) GeneratePutPresignedURL(provider string, region, bucke
 		return generateOssPutPresignedURL(region, bucket, objectKey, expiration)
 	case "cos":
 		return generateCosPutPresignedURL(region, bucket, objectKey, expiration)
+	case "mock":
+		return generateMockPutPresignedURL(region, bucket, objectKey, expiration)
 	default:
 		return "", errors.New("unsupported provider")
 	}
@@ -52,6 +54,8 @@ func (ss *StorageService) GenerateGetPresignedURL(provider string, region, bucke
 		return generateOssGetPresignedURL(region, bucket, objectKey, expiration)
 	case "cos":
 		return generateCosGetPresignedURL(region, bucket, objectKey, expiration)
+	case "mock":
+		return generateMockGetPresignedURL(region, bucket, objectKey, expiration)
 	default:
 		return "", errors.New("unsupported provider")
 	}
@@ -67,12 +71,14 @@ func (ss *StorageService) ListObjects(provider, region, bucket string, prefix st
 		return listOssObjects(region, bucket, prefix, maxKeys)
 	case "cos":
 		return listCosObjects(region, bucket, prefix, maxKeys)
+	case "mock":
+		return listMockObjects(region, bucket, prefix, maxKeys)
 	default:
 		return nil, errors.New("unsupported provider")
 	}
 }
 
-func generateAwsPutPresignedURL(region, bucket, objectKey string, duaration time.Duration) (string, error) {
+func generateAwsPutPresignedURL(region, bucket, objectKey string, duration time.Duration) (string, error) {
 	// This function should generate a presigned URL for AWS S3.
 	presignClient, err := newAwsPresignClient(region)
 	if err != nil {
@@ -84,7 +90,7 @@ func generateAwsPutPresignedURL(region, bucket, objectKey string, duaration time
 		Key:    &objectKey,
 	}
 	presignOutput, err := presignClient.PresignPutObject(context.TODO(), input, func(po *s3.PresignOptions) {
-		po.Expires = duaration
+		po.Expires = duration
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to presign put object: %w", err)
@@ -120,6 +126,10 @@ func generateCosPutPresignedURL(region, bucket, objectKey string, expiration tim
 		return "", fmt.Errorf("failed to presign put object: %w", err)
 	}
 	return presignedURL.String(), nil
+}
+
+func generateMockPutPresignedURL(region, bucket, objectKey string, expiration time.Duration) (string, error) {
+	return fmt.Sprintf("https://%s.mockstorage.com/%s/%s?expires=%d", region, bucket, objectKey, time.Now().Add(expiration).Unix()), nil
 }
 
 func generateAwsGetPresignedURL(region, bucket, objectKey string, expiration time.Duration) (string, error) {
@@ -169,6 +179,10 @@ func generateCosGetPresignedURL(region, bucket, objectKey string, expiration tim
 		return "", fmt.Errorf("failed to presign put object: %w", err)
 	}
 	return presignedURL.String(), nil
+}
+
+func generateMockGetPresignedURL(region, bucket, objectKey string, expiration time.Duration) (string, error) {
+	return fmt.Sprintf("https://%s.mockstorage.com/%s/%s?expires=%d", region, bucket, objectKey, time.Now().Add(expiration).Unix()), nil
 }
 
 func listAwsObjects(region, bucket, prefix string, maxKeys int32) ([]string, error) {
@@ -238,6 +252,14 @@ func listCosObjects(region, bucket string, prefix string, maxKeys int32) ([]stri
 	var objects []string
 	for _, item := range result.Contents {
 		objects = append(objects, item.Key)
+	}
+	return objects, nil
+}
+
+func listMockObjects(_, _, _ string, maxKeys int32) ([]string, error) {
+	var objects []string
+	for i := 0; i < int(maxKeys); i++ {
+		objects = append(objects, fmt.Sprintf("mock-object-%d", i))
 	}
 	return objects, nil
 }

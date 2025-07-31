@@ -10,38 +10,41 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testDeivcesModels models.DeviceModels
+var testDeviceModels models.DeviceModels
 
 func mockDeviceRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip",
+	return sqlmock.NewRows([]string{"id", "secret_key", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip",
 		"online", "location", "created_at", "active_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockDevice0())...)
 }
 
 func mockDevicesRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip",
+	return sqlmock.NewRows([]string{"id", "secret_key", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip",
 		"online", "location", "created_at", "active_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockDevice0())...).
 		AddRow(StructToSlice(mockDevice1())...)
 }
 
 func mockDevice0() models.Device {
-	faetures, _ := json.Marshal([]string{"p2p", "cloud_storage"})
+	features, _ := json.Marshal([]string{"p2p", "cloud_storage"})
 	state, _ := json.Marshal(map[string]interface{}{"volume": 100, "record": map[string]interface{}{"status": true, "mode": 1}})
+
+	location := models.NewPoint(121.123456, 31.123456)
 
 	return models.Device{
 		ID:         "d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a",
+		SecretKey:  "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
 		LicenseID:  "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
 		Name:       "Alice",
 		ProductID:  "1",
 		GroupID:    "1010",
-		Features:   faetures,
+		Features:   features,
 		State:      state,
 		Version:    "v0.1.1",
 		SDKVersion: "sdk_0.0.1",
 		IP:         "192.168.22.123",
 		Online:     true,
-		Location:   "121.123456,31.123456",
+		Location:   location,
 		CreatedAt:  time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
 		ActiveAt:   time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
 		UpdatedAt:  time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
@@ -50,22 +53,25 @@ func mockDevice0() models.Device {
 }
 
 func mockDevice1() models.Device {
-	featrues, _ := json.Marshal([]string{"p2p", "cloud_storage"})
+	features, _ := json.Marshal([]string{"p2p", "cloud_storage"})
 	state, _ := json.Marshal(map[string]interface{}{"volume": 100, "record": map[string]interface{}{"status": true, "mode": 1}})
+
+	location := models.NewPoint(34.0522, -118.2437)
 
 	return models.Device{
 		ID:         "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+		SecretKey:  "d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a",
 		LicenseID:  "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
 		Name:       "Dave",
 		ProductID:  "f0e1d2c3-b4a5-6b7c-8d9e-0f1a2b3c4d5e",
 		GroupID:    "1010",
-		Features:   featrues,
+		Features:   features,
 		State:      state,
 		Version:    "v0.1.1",
 		SDKVersion: "sdk_0.0.1",
 		IP:         "192.168.12.13",
 		Online:     true,
-		Location:   "34.0522,-118.2437",
+		Location:   location,
 		CreatedAt:  time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC),
 		ActiveAt:   time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC),
 		UpdatedAt:  time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC),
@@ -79,12 +85,12 @@ func TestGetDevice(t *testing.T) {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
-	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE id = \\$1").
-		WithArgs("d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a").
+	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE id = \\$1 ORDER BY \"devices\".\"id\" LIMIT \\$2").
+		WithArgs("d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a", 1).
 		WillReturnRows(mockDeviceRows())
 
 	models.MockSetup(db)
-	device, Error := testDeivcesModels.Get("d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a")
+	device, Error := testDeviceModels.Get("d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a")
 	if Error != nil {
 		t.Errorf("Expected a non-nil device %s", Error)
 	}
@@ -107,7 +113,7 @@ func TestDevicesCount(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
 	models.MockSetup(db)
-	count, Error := testDeivcesModels.Count(groupIDs)
+	count, Error := testDeviceModels.Count(groupIDs)
 	if Error != nil {
 		t.Errorf("Expected a non-nil device %s", Error)
 	}
@@ -127,11 +133,12 @@ func TestDeviceList(t *testing.T) {
 
 	groupIDs := []string{"1010", "2020"}
 	mock.ExpectQuery("SELECT \\* FROM \"devices\" WHERE status = true and group_id IN \\(\\$1,\\$2\\) ORDER BY created_at desc LIMIT \\$3 OFFSET \\$4").
-		WithArgs("1010", "2020", 100, 10).
+		WithArgs("1010", "2020", 10, 100).
 		WillReturnRows(mockDevicesRows())
 
+	orderBy := "created_at desc"
 	models.MockSetup(db)
-	devices, Error := testDeivcesModels.List(groupIDs, 100, 10, "created_at desc")
+	devices, Error := testDeviceModels.List(groupIDs, 11, 10, &orderBy)
 	if Error != nil {
 		t.Errorf("Expected a non-nil device %s", Error)
 	}
@@ -158,7 +165,7 @@ func TestCreateDevice(t *testing.T) {
 
 	models.MockSetup(db)
 	device := mockDevice0()
-	err = testDeivcesModels.Create(&device)
+	err = testDeviceModels.Create(&device)
 	if err != nil {
 		t.Errorf("Expected a non-nil device %s", err)
 	}
@@ -178,7 +185,7 @@ func TestUpdateDevice(t *testing.T) {
 
 	models.MockSetup(db)
 	device := mockDevice0()
-	err = testDeivcesModels.Update(&device)
+	err = testDeviceModels.Update(&device)
 	if err != nil {
 		t.Errorf("Expected a non-nil device %s", err)
 	}

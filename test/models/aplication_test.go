@@ -12,12 +12,12 @@ import (
 var testApplicationModels models.ApplicationModels
 
 func mockApplicationRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "name", "description", "secret_key", "created_at", "updated_at", "status"}).
+	return sqlmock.NewRows([]string{"id", "name", "description", "secret_key", "salt", "created_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockApplication0())...)
 }
 
 func mockApplicationsRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "name", "description", "secret_key", "created_at", "updated_at", "status"}).
+	return sqlmock.NewRows([]string{"id", "name", "description", "secret_key", "salt", "created_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockApplication0())...).
 		AddRow(StructToSlice(mockApplication1())...)
 }

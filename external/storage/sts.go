@@ -88,7 +88,7 @@ type OssPolicy struct {
 }
 
 type IStsService interface {
-	GenerateCredentials(provider string, region string, statement []Statement, duaration int32) (Credentials, error)
+	GenerateCredentials(provider string, region string, statement []Statement, duration int32) (Credentials, error)
 }
 
 type StsService struct{}
@@ -97,20 +97,22 @@ func NewStsService() *StsService {
 	return &StsService{}
 }
 
-func (ss *StsService) GenerateCredentials(provider string, region string, statement []Statement, duaration int32) (Credentials, error) {
+func (ss *StsService) GenerateCredentials(provider string, region string, statement []Statement, duration int32) (Credentials, error) {
 	switch provider {
 	case "aws":
-		return generateAwsCredentials(region, statement, duaration)
+		return generateAwsCredentials(region, statement, duration)
 	case "oss":
-		return generateOssCredentials(region, statement, duaration)
+		return generateOssCredentials(region, statement, duration)
 	case "cos":
-		return generateCosCredentials(region, statement, duaration)
+		return generateCosCredentials(region, statement, duration)
+	case "mock":
+		return generateMockCredentials(region, statement, duration)
 	default:
 		return Credentials{}, errors.New("unsupported provider")
 	}
 }
 
-func generateAwsCredentials(region string, statement []Statement, duaration int32) (Credentials, error) {
+func generateAwsCredentials(region string, statement []Statement, duration int32) (Credentials, error) {
 	// This function would typically generate AWS credentials for the specified bucket.
 	// For simplicity, let's return a dummy set of credentials.
 	// In a real application, this would involve using AWS SDK to generate temporary credentials.
@@ -135,7 +137,7 @@ func generateAwsCredentials(region string, statement []Statement, duaration int3
 		RoleArn:         aws.String(RoleArn),
 		RoleSessionName: aws.String(uuid.New().String()),
 		Policy:          aws.String(string(value)),
-		DurationSeconds: aws.Int32(duaration),
+		DurationSeconds: aws.Int32(duration),
 	}
 	assumeRoleOutput, err := stsClient.AssumeRole(context.TODO(), &input)
 	if err != nil {
@@ -152,7 +154,7 @@ func generateAwsCredentials(region string, statement []Statement, duaration int3
 /*
 see https://help.aliyun.com/zh/oss/developer-reference/use-temporary-access-credentials-provided-by-sts-to-access-oss
 */
-func generateOssCredentials(region string, statement []Statement, duaration int32) (Credentials, error) {
+func generateOssCredentials(region string, statement []Statement, duration int32) (Credentials, error) {
 	// This function would typically generate OSS credentials for the specified bucket.
 	// For simplicity, let's return a dummy set of credentials.
 	// In a real application, this would involve using OSS SDK to generate temporary credentials.
@@ -182,7 +184,7 @@ func generateOssCredentials(region string, statement []Statement, duaration int3
 		RoleArn:         ossTea.String(RoleArn),
 		RoleSessionName: ossTea.String(uuid.New().String()),
 		Policy:          ossTea.String(string(value)),
-		DurationSeconds: ossTea.Int64(int64(duaration)),
+		DurationSeconds: ossTea.Int64(int64(duration)),
 	}
 
 	output, err := client.AssumeRoleWithOptions(input, &ossService.RuntimeOptions{})
@@ -204,7 +206,7 @@ func generateOssCredentials(region string, statement []Statement, duaration int3
 	}, nil
 }
 
-func generateCosCredentials(region string, statement []Statement, duaration int32) (Credentials, error) {
+func generateCosCredentials(region string, statement []Statement, duration int32) (Credentials, error) {
 	// This function would typically generate COS credentials for the specified bucket.
 	// For simplicity, let's return a dummy set of credentials.
 	// In a real application, this would involve using COS SDK to generate temporary credentials.
@@ -212,7 +214,7 @@ func generateCosCredentials(region string, statement []Statement, duaration int3
 	cosClient := cosSts.NewClient(AccessKeyID, SecretAccessKey, nil)
 
 	opt := &cosSts.CredentialOptions{
-		DurationSeconds: int64(duaration),
+		DurationSeconds: int64(duration),
 		Region:          region,
 		Policy: &cosSts.CredentialPolicy{
 			Statement: newCosStatement(CosAppId, region, statement),
@@ -232,6 +234,15 @@ func generateCosCredentials(region string, statement []Statement, duaration int3
 		SecretAccessKey: &output.Credentials.TmpSecretKey,
 		SessionToken:    &output.Credentials.SessionToken,
 		Expiration:      &expiration,
+	}, nil
+}
+
+func generateMockCredentials(_ string, _ []Statement, duration int32) (Credentials, error) {
+	return Credentials{
+		AccessKeyId:     aws.String("mock-access-key-id"),
+		SecretAccessKey: aws.String("mock-secret-access-key"),
+		SessionToken:    aws.String("mock-session-token"),
+		Expiration:      aws.Time(time.Now().Add(time.Duration(duration) * time.Second)),
 	}, nil
 }
 

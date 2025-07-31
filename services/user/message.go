@@ -4,18 +4,16 @@ import (
 	"encoding/json"
 	"nexus/models"
 	"time"
-
-	"github.com/google/uuid"
 )
 
-type Resouce struct {
+type Resource struct {
 	Type string `json:"type"`
 	Url  string `json:"url"`
 }
 
 type AlarmContent struct {
 	Type    string  `json:"type"`
-	Resouce Resouce `json:"resouce"`
+	Resource Resource `json:"resource"`
 	Device  string  `json:"device"`
 }
 
@@ -36,18 +34,18 @@ type BaseMessage struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func (messae *BaseMessage) GetType() string {
-	return messae.Type
+func (message *BaseMessage) GetType() string {
+	return message.Type
 }
 
 type AlarmMessage struct {
 	BaseMessage
-	Conntent AlarmContent `json:"content"`
+	Content AlarmContent `json:"content"`
 }
 
 type DeviceNotificationMessage struct {
 	BaseMessage
-	Conntent DeviceNotificationContent `json:"content"`
+	Content DeviceNotificationContent `json:"content"`
 }
 
 type IMessageService interface {
@@ -83,7 +81,7 @@ func (service *MessageService) ListByUserAndType(userID *string, messageType *st
 
 func (service *MessageService) Create(userID string, messageType string, content string) (string, error) {
 	message := models.Message{
-		ID:      uuid.New().String(),
+		ID:      models.GenerateID(),
 		UserID:  userID,
 		Type:    messageType,
 		Content: []byte(content),
@@ -150,7 +148,7 @@ func toAlarmMessage(message models.Message) (*AlarmMessage, error) {
 			CreatedAt: message.CreatedAt,
 			UpdatedAt: message.UpdatedAt,
 		},
-		Conntent: AlarmContent,
+		Content: AlarmContent,
 	}, nil
 }
 
@@ -167,6 +165,6 @@ func toDeviceNotificationMessage(message models.Message) (*DeviceNotificationMes
 			CreatedAt: message.CreatedAt,
 			UpdatedAt: message.UpdatedAt,
 		},
-		Conntent: DeviceNotificationContent,
+		Content: DeviceNotificationContent,
 	}, nil
 }

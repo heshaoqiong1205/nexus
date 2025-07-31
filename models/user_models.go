@@ -8,7 +8,7 @@ type User struct {
 	Username      string
 	Password      string
 	Region        string
-	Location      string
+	Location      *Point `gorm:"type:point"`
 	Icon          string
 	Role          string
 	LastLoginTime time.Time
@@ -20,7 +20,8 @@ type User struct {
 type IUserModels interface {
 	Get(id string) (User, error)
 	GetByAccount(account string) (User, error)
-	List(LikeAccount string, limt int, offset int, orderBY string) ([]User, error)
+	Count(likeAccount string) (int64, error)
+	List(likeAccount string, limit int, offset int, orderBy string) ([]User, error)
 	Create(user *User) error
 	Update(user *User) error
 }
@@ -46,10 +47,20 @@ func (models *UserModels) GetByAccount(account string) (User, error) {
 	return user, nil
 }
 
-func (models *UserModels) List(LikeAccount string, limt int, offset int, orderBY string) ([]User, error) {
+func (models *UserModels) Count(likeAccount string) (int64, error) {
+	var total int64
+
+	result := db.Model(&User{}).Where("status = true and account like ?", likeAccount).Count(&total)
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return total, nil
+}
+
+func (models *UserModels) List(likeAccount string, limit int, offset int, orderBy string) ([]User, error) {
 	var users []User
 
-	result := db.Limit(limt).Offset(offset).Order(orderBY).Find(&users, "status = true and account like ?", LikeAccount)
+	result := db.Limit(limit).Offset(offset).Order(orderBy).Find(&users, "status = true and account like ?", likeAccount)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -72,12 +83,3 @@ func (models *UserModels) Update(user *User) error {
 	return nil
 }
 
-func (models *UserModels) Count() (int64, error) {
-	var total int64
-
-	result := db.Model(&User{}).Where("status = true").Count(&total)
-	if result.Error != nil {
-		return 0, result.Error
-	}
-	return total, nil
-}

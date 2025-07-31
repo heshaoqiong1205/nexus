@@ -3,6 +3,7 @@ package things
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"strconv"
 )
 
@@ -31,6 +32,7 @@ type VideoFeature struct {
 }
 
 func (v *VideoFeature) validate() error {
+	log.Printf("Validating video feature: %+v\n", v)
 	if v.Num <= 0 {
 		return errors.New("invalid video feature num")
 	}
@@ -41,7 +43,7 @@ func (v *VideoFeature) validate() error {
 		return errors.New("invalid video feature resolution ratios")
 	}
 	for _, codec := range v.Codecs {
-		if codec != "h264" && codec != "h265" && codec != "vp8" && codec != "vp9" {
+		if codec != "H264" && codec != "H265" && codec != "VP8" && codec != "VP9" {
 			return errors.New("invalid video feature codec: " + codec)
 		}
 	}
@@ -74,7 +76,7 @@ func (a *AudioFeature) validate() error {
 		return errors.New("audio feature codecs is empty")
 	}
 	for _, codec := range a.Codecs {
-		if codec != "PCMA" && codec != "PCMU" && codec != "PCM" && codec != "opus" && codec != "aac" {
+		if codec != "PCMA" && codec != "PCMU" && codec != "PCM" && codec != "OPUS" && codec != "AAC" {
 			return errors.New("invalid audio feature codec: " + codec)
 		}
 	}

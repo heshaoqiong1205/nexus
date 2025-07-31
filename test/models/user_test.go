@@ -25,13 +25,15 @@ func mockUsersRows() *sqlmock.Rows {
 }
 
 func mockUser0() models.User {
+	location := models.NewPoint(121.123456, 31.123456)
+
 	return models.User{
 		ID:            "001",
 		Account:       "account1",
-		Username:      "testuser1",
+		Username:      "test_user1",
 		Password:      "password1",
 		Region:        "region1",
-		Location:      "location1",
+		Location:       location,
 		Icon:          "icon1",
 		Role:          "admin",
 		LastLoginTime: time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
@@ -42,13 +44,15 @@ func mockUser0() models.User {
 }
 
 func mockUser1() models.User {
+	location := models.NewPoint(34.0522, -118.2437)
+
 	return models.User{
 		ID:            "002",
 		Account:       "account2",
-		Username:      "testuser2",
+		Username:      "test_user2",
 		Password:      "password2",
 		Region:        "region2",
-		Location:      "location2",
+		Location:      location,
 		Icon:          "icon2",
 		Role:          "user",
 		LastLoginTime: time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),

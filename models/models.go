@@ -2,8 +2,12 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"nexus/pkg/setting"
+	"strings"
 
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -18,9 +22,10 @@ type Model struct {
 }
 
 // Setup initializes the database instance
-func Setup() {
+func Setup(config *setting.Database) {
 	var err error
-	dsn := "host=localhost user=things password=123456 dbname=things port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Shanghai",
+		config.Host, config.User, config.Password, config.Name, config.Port)
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("models.Setup err: %v", err)
@@ -39,4 +44,16 @@ func MockSetup(conn *sql.DB) {
 	if err != nil {
 		log.Fatalf("models.Setup err: %v", err)
 	}
+}
+
+func GenerateID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+func GenerateDeviceID() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
+}
+
+func GenerateSecretKey() string {
+	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }

@@ -26,7 +26,7 @@ func mockUser0() models.User {
 		Username: "test_username0",
 		Password: "test_password0",
 		Region:   "china",
-		Location: "test_location0",
+		Location:  &models.Point{Latitude: 39.9042, Longitude: 116.4074},
 		Icon:     "test_icon0",
 		Role:     "admin",
 		Status:   true,
@@ -40,7 +40,7 @@ func mockUser1() models.User {
 		Username: "test_username1",
 		Password: "test_password1",
 		Region:   "china",
-		Location: "test_location1",
+		Location: &models.Point{Latitude: 31.2304, Longitude: 121.4737},
 		Icon:     "test_icon1",
 		Role:     "user",
 		Status:   true,
@@ -67,9 +67,14 @@ func (m *MockUserModels) Update(user *models.User) error {
 	return nil
 }
 
-func (m *MockUserModels) List(LikeAccount string, limt int, offset int, orderBY string) ([]models.User, error) {
+func (m *MockUserModels) List(LikeAccount string, limit int, offset int, orderBY string) ([]models.User, error) {
 	// Mock implementation
 	return []models.User{mockUser0(), mockUser1()}, nil
+}
+
+func (m *MockUserModels) Count(LikeAccount string) (int64, error) {
+	// Mock implementation
+	return int64(2), nil
 }
 
 func TestSignUp(t *testing.T) {
@@ -79,22 +84,34 @@ func TestSignUp(t *testing.T) {
 	// Create a new user service with the mock user models
 	userService := user.NewUserServiceWithModel(mockUserModels)
 
+	location := user.Point{Latitude: 39.9042, Longitude: 116.4074}
+
 	// Call the SignUp method
-	userDetails, err := userService.SignUp("test_account0", "test_password0", "test_username0", "china")
+	request := user.SignUpRequest{
+		Account:  "test_account0",
+		Password: "test_password0",
+		Username: "test_username0",
+		Region:   "china",
+		Location: &location,
+	}
+	signUpResponse, err := userService.SignUp(request)
 	assert.Equal(t, nil, err)
 
 	// Check the returned user details
-	expected := &user.UserDetails{
-		Account:       "test_account0",
-		Username:      "test_username0",
-		Region:        "china",
-		Location:      "",
-		Icon:          "",
-		Role:          "user",
-		LastLoginTime: userDetails.LastLoginTime,
-		SginUpAt:      userDetails.SginUpAt,
+	expected := user.SignUpResponse{
+		Token: signUpResponse.Token,
+		User: &user.UserDetails{
+			Account:       "test_account0",
+			Username:      "test_username0",
+			Region:        "china",
+			Location:      &location,
+			Icon:          "",
+			Role:          "user",
+			LastLoginTime: signUpResponse.User.LastLoginTime,
+			SignUpAt:      signUpResponse.User.SignUpAt,
+		},
 	}
-	assert.Equal(t, expected, userDetails)
+	assert.Equal(t, expected, signUpResponse)
 }
 
 func TestSignIn(t *testing.T) {
@@ -105,7 +122,11 @@ func TestSignIn(t *testing.T) {
 	userService := user.NewUserServiceWithModel(mockUserModels)
 
 	// Call the SignIn method
-	_, err := userService.SignIn("test_account0", "test_password0")
+	request := user.SignInRequest{
+		Account:  "test_account0",
+		Password: "test_password0",
+	}
+	_, err := userService.SignIn(request)
 	assert.Equal(t, nil, err)
 
 }
@@ -122,7 +143,9 @@ func TestGetUser(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	// Check the returned user details
-	expected := toUserDetails(mockUser0())
+	expected := user.UserResponse{
+		User: toUserDetails(mockUser0()),
+	}
 	assert.Equal(t, expected, userDetails)
 }
 
@@ -134,12 +157,14 @@ func TestGetByAccount(t *testing.T) {
 	userService := user.NewUserServiceWithModel(mockUserModels)
 
 	// Call the GetByAccount method
-	userDetails, err := userService.GetByAccount("test_account0")
+	userResponse, err := userService.GetByAccount("test_account0")
 	assert.Equal(t, nil, err)
 
 	// Check the returned user details
-	expected := toUserDetails(mockUser0())
-	assert.Equal(t, expected, userDetails)
+	expected := user.UserResponse{
+		User: toUserDetails(mockUser0()),
+	}
+	assert.Equal(t, expected, userResponse)
 }
 
 func TestSearchByAccount(t *testing.T) {
@@ -150,15 +175,24 @@ func TestSearchByAccount(t *testing.T) {
 	userService := user.NewUserServiceWithModel(mockUserModels)
 
 	// Call the List method
-	users, err := userService.SearchByAccount("test_account", 10, 0, "account")
+	request := user.UserSearchRequest{
+		LikeAccount: "test_account",
+		Limit:      10,
+		Offset:     0,
+		OrderBy:    "account",
+	}
+	UserSearchResponse, err := userService.SearchByAccount(request)
 	assert.Equal(t, nil, err)
 
 	// Check the returned users
-	expected := []user.UserDetails{
-		*toUserDetails(mockUser0()),
-		*toUserDetails(mockUser1()),
+	expected := user.UserSearchResponse{
+		Total: 2,
+		Users: []user.UserDetails{
+			*toUserDetails(mockUser0()),
+			*toUserDetails(mockUser1()),
+		},
 	}
-	assert.Equal(t, expected, users)
+	assert.Equal(t, expected, UserSearchResponse)
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -168,7 +202,7 @@ func TestUpdateUser(t *testing.T) {
 	// Create a new user service with the mock user models
 	userService := user.NewUserServiceWithModel(mockUserModels)
 
-	location := "test_location0"
+	location := user.Point{Latitude: 39.9042, Longitude: 116.4074}
 
 	request := user.ModifyUserRequest{
 		ID:       "test_id0",
@@ -183,15 +217,16 @@ func TestUpdateUser(t *testing.T) {
 
 /* internal function */
 func toUserDetails(u models.User) *user.UserDetails {
+
 	return &user.UserDetails{
 		Account:       u.Account,
 		Username:      u.Username,
 		Region:        u.Region,
-		Location:      u.Location,
+		Location:      &user.Point{Latitude: u.Location.Latitude, Longitude: u.Location.Longitude},
 		Icon:          u.Icon,
 		Role:          u.Role,
 		LastLoginTime: u.LastLoginTime,
-		SginUpAt:      u.CreatedAt,
+		SignUpAt:      u.CreatedAt,
 	}
 }
 
@@ -208,7 +243,7 @@ func mockMessage0() models.Message {
 		ID:        "test_id0",
 		UserID:    "test_user_id",
 		Type:      "alarm",
-		Content:   []byte("{\"type\":\"alarm\",\"resouce\":{\"type\":\"image\",\"url\":\"test_url\"},\"device\":\"test_device0\"}"),
+		Content:   []byte("{\"type\":\"alarm\",\"resource\":{\"type\":\"image\",\"url\":\"test_url\"},\"device\":\"test_device0\"}"),
 		CreatedAt: time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2020, time.October, 25, 14, 30, 0, 0, time.UTC),
 		Status:    true,
@@ -297,9 +332,9 @@ func TestMessageListByUserAndType(t *testing.T) {
 				CreatedAt: message0.CreatedAt,
 				UpdatedAt: message0.UpdatedAt,
 			},
-			Conntent: user.AlarmContent{
+			Content: user.AlarmContent{
 				Type: "alarm",
-				Resouce: user.Resouce{
+				Resource: user.Resource{
 					Type: "image",
 					Url:  "test_url",
 				},
@@ -314,7 +349,7 @@ func TestMessageListByUserAndType(t *testing.T) {
 				CreatedAt: message1.CreatedAt,
 				UpdatedAt: message1.UpdatedAt,
 			},
-			Conntent: user.DeviceNotificationContent{
+			Content: user.DeviceNotificationContent{
 				Action: "ADD_DEVICE",
 				Device: "test_device1",
 			},

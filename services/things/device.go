@@ -34,6 +34,14 @@ func NewIoTDevice(device models.Device) (*IoTDevice, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Convert Point to location
+	var loc location
+	if device.Location != nil {
+		loc.Latitude = &device.Location.Latitude
+		loc.Longitude = &device.Location.Longitude
+	}
+
 	return &IoTDevice{
 		ID:         device.ID,
 		SecretKey:  device.SecretKey,
@@ -46,8 +54,10 @@ func NewIoTDevice(device models.Device) (*IoTDevice, error) {
 		SDKVersion: device.SDKVersion,
 		IP:         device.IP,
 		Online:     device.Online,
-		Location:   location{Latitude: nil, Longitude: nil}, // Default location
+		Location:   loc,
 		Status:     device.Status,
+		CreatedAt:  device.CreatedAt.UnixMilli(),
+		UpdatedAt:  device.UpdatedAt.UnixMilli(),
 	}, nil
 }
 

@@ -53,7 +53,6 @@ func (r *BaseResponse) SetMessage(message string) {
 type ActiveRequest struct {
 	LicenseID    string   `json:"license_id"`
 	Authenticate string   `json:"authenticate"`
-	DeviceID     string   `json:"device_id"`
 	ProductID    string   `json:"product_id"`
 	Version      string   `json:"version"`
 	SDKVersion   string   `json:"sdk_version"`
@@ -63,10 +62,10 @@ type ActiveRequest struct {
 }
 
 type DevicesQuery struct {
-	GroupList []string `json:"group_id"`
+	GroupList []string `json:"group_list"`
 	Page      int      `json:"page"`
 	PageSize  int      `json:"page_size"`
-	OrderBy   string   `json:"order_by"`
+	OrderBy   *string  `json:"order_by"`
 }
 
 func newServiceRequest(method string, deviceID string, data []byte) *ServiceRequest {
@@ -101,10 +100,16 @@ func (service *ThingService) Active(request *ActiveRequest) (*IoTDevice, error) 
 	if err != nil {
 		return nil, err
 	}
-	requiredFeatures, err := service.getRequiredFeatures(request.ProductID)
+	product, err := service.getProduct(request.ProductID)
 	if err != nil {
 		return nil, err
 	}
+	var requiredFeatures []string
+	err = json.Unmarshal(product.RequiredFeatures, &requiredFeatures)
+	if err != nil {
+		return nil, err
+	}
+
 	newFeature, err := service.checkFeatures(requiredFeatures, request.Features)
 	if err != nil {
 		return nil, err
@@ -114,49 +119,28 @@ func (service *ThingService) Active(request *ActiveRequest) (*IoTDevice, error) 
 	if err != nil {
 		return nil, err
 	}
-	if request.DeviceID != "" {
-		device, err := service.deviceModels.Get(request.DeviceID)
-		if err != nil {
-			return nil, errors.New("device not found")
-		}
-		if device.LicenseID != request.LicenseID {
-			return nil, errors.New("device not belong to this license")
-		}
-		device.ProductID = request.ProductID
-		device.Features = newFeature
-		device.Version = request.Version
-		device.SDKVersion = request.SDKVersion
-		device.IP = request.IP
-		device.State = bState
-		device.UpdatedAt = time.Now()
-		device.ActiveAt = time.Now()
-		err = service.deviceModels.Update(&device)
-		if err != nil {
-			return nil, err
-		}
-		return NewIoTDevice(device)
-	} else {
-		device := &models.Device{
-			ID:         request.DeviceID,
-			ProductID:  request.ProductID,
-			GroupID:    request.LicenseID,
-			Features:   newFeature,
-			Version:    request.Version,
-			SDKVersion: request.SDKVersion,
-			IP:         request.IP,
-			State:      bState,
-			UpdatedAt:  time.Now(),
-			ActiveAt:   time.Now(),
-			CreatedAt:  time.Now(),
-			Status:     true,
-		}
-		err = service.deviceModels.Create(device)
-		if err != nil {
-			return nil, err
-		}
-		log.Println("========???========")
-		return NewIoTDevice(*device)
+
+	device := &models.Device{
+		ID:         models.GenerateDeviceID(),
+		Name:       product.Name + "-" + uuid.NewString()[0:4],
+		SecretKey:  models.GenerateSecretKey(),
+		LicenseID:  request.LicenseID,
+		ProductID:  request.ProductID,
+		Features:   newFeature,
+		Version:    request.Version,
+		SDKVersion: request.SDKVersion,
+		IP:         request.IP,
+		State:      bState,
+		UpdatedAt:  time.Now(),
+		ActiveAt:   time.Now(),
+		CreatedAt:  time.Now(),
+		Status:     true,
 	}
+	err = service.deviceModels.Create(device)
+	if err != nil {
+		return nil, err
+	}
+	return NewIoTDevice(*device)
 }
 
 func (service *ThingService) Deactivate(deviceID string) error {
@@ -268,10 +252,13 @@ func (service *ThingService) authentication(licenseID string, authenticate strin
 	h := hmac.New(sha256.New, []byte(license.Key))
 	h.Write([]byte(license.ID))
 	signature := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	log.Printf("signature: %s, authenticate: %s\n", signature, authenticate)
+
 	if signature == authenticate {
 		return nil
 	}
-	return errors.New("invalid token")
+	return errors.New("invalid authentication")
 }
 
 func (service *ThingService) checkFeatures(requiredFeatures []string, features Features) ([]byte, error) {
@@ -279,6 +266,7 @@ func (service *ThingService) checkFeatures(requiredFeatures []string, features F
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("requiredFeatures: %+v, features: %+v\n", requiredFeatures, features)
 	err = features.ValidateRequirements(requiredFeatures)
 	if err != nil {
 		return nil, err
@@ -292,10 +280,23 @@ func (service *ThingService) getRequiredFeatures(productID string) ([]string, er
 		return nil, err
 	}
 	var requiredFeatures []string
+
 	log.Printf("product.RequiredFeatures %v", product.RequiredFeatures)
+
 	err = json.Unmarshal(product.RequiredFeatures, &requiredFeatures)
 	if err != nil {
 		return nil, err
 	}
 	return requiredFeatures, nil
+}
+
+func (service *ThingService) getProduct(productID string) (models.Product, error) {
+	if productID == "" {
+		return models.Product{}, errors.New("product id cannot be empty")
+	}
+	product, err := service.productModels.Get(productID)
+	if err != nil {
+		return models.Product{}, err
+	}
+	return product, nil
 }

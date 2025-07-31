@@ -16,13 +16,13 @@ func init() {
 	appName = "nexus"
 }
 
-type NexcusHeader struct {
+type NexusHeader struct {
 	Type string `json:"typ"`
 	Alg  string `json:"alg"`
 }
 
 type NexusClaims struct {
-	NexcusHeader
+	NexusHeader
 	jwt.RegisteredClaims
 }
 
@@ -32,7 +32,7 @@ type JWTService struct {
 
 func GenerateToken(algorithm string, userID string, lifetime int64) (string, error) {
 	claims := NexusClaims{
-		NexcusHeader: NexcusHeader{
+		NexusHeader: NexusHeader{
 			Type: "JWT",
 			Alg:  algorithm,
 		},

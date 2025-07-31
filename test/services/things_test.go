@@ -19,7 +19,7 @@ func (m *MockDeviceModels) Get(licenseID string) (models.Device, error) {
 	return models.Device{}, nil
 }
 
-func (m *MockDeviceModels) List(group_list []string, page int, pageSize int, orderBY string) ([]models.Device, error) {
+func (m *MockDeviceModels) List(group_list []string, page int, pageSize int, orderBY *string) ([]models.Device, error) {
 	return []models.Device{}, nil
 }
 
@@ -79,7 +79,7 @@ func (m *MockProductModels) Delete(id string) error {
 	return nil
 }
 
-func TestAcitve(t *testing.T) {
+func TestActive(t *testing.T) {
 	requestFeatures, _ := json.Marshal([]string{"p2p", "webrtc", "upnp", "ai"})
 	mockLicenseModels := new(MockLicenseModels)
 	mockDeviceModels := new(MockDeviceModels)
@@ -116,7 +116,7 @@ func TestAcitve(t *testing.T) {
 			AI:     &ai,
 			VideoFeature: &things.VideoFeature{
 				Num:              1,
-				Codecs:           []string{"h264", "h265"},
+				Codecs:           []string{"H264", "H265"},
 				ResolutionRatios: []things.ResolutionRatio{{Width: 1920, Height: 1080}},
 				Streams:          []int{1, 2},
 			},
