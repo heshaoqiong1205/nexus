@@ -1,7 +1,7 @@
 package things
 
 type Event struct {
-	DeviceID string `json:"device_id"`
-	Type     string `json:"type"`
-	Data     []byte `json:"data"`
+	Timestamp int64`json:"timestamp"`
+	Type      string    `json:"type"`
+	Data      []byte    `json:"data"`
 }

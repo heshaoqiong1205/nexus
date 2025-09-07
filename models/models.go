@@ -46,6 +46,10 @@ func MockSetup(conn *sql.DB) {
 	}
 }
 
+func GetDB() *gorm.DB {
+	return db
+}
+
 func GenerateID() string {
 	return strings.ReplaceAll(uuid.New().String(), "-", "")
 }

@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS devices (
     group_id VARCHAR(255),
     features JSONB,
     state JSONB,
+    desired JSONB,
     version VARCHAR(100),
     sdk_version VARCHAR(100),
     ip VARCHAR(45),
@@ -237,22 +238,25 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Insert sample IoT devices with location points
 INSERT INTO devices (id, secret_key, license_id, name, product_id, group_id,
-                               features, state, version, sdk_version, ip, online, location,
+                               features, state, desired,version, sdk_version, ip, online, location,
                                status, created_at, active_at, updated_at)
 VALUES
     ('dev-001', 'device-secret-001', 'lic-001', 'Temperature Sensor NYC', 'prod-001', 'group-001',
      '{"p2p": "standard", "webrtc": ["SRTP"], "upnp": "enable", "ai": "local", "video_feature": null, "audio_feature": null}'::JSONB,
      '{"video": null, "storage": {"mode": "local", "capacity": 32, "status": true}, "record": null, "motion_detection": null, "decibel_detection": null, "cruise": null, "siren": null, "volume": 50, "privacy_mode": false, "night_vision": false, "motion_tracking": false}'::JSONB,
+     '{"volume": 100, "record": {"status": true, "mode": 1}, "timestamp": 1633072800000}'::JSONB,
      '1.0.0', '2.1.0', '192.168.1.10', true, POINT(-74.0059, 40.7128),
      true, NOW(), NOW(), NOW()),
     ('dev-002', 'device-secret-002', 'lic-002', 'Camera Device Beijing', 'prod-001', 'group-002',
      '{"p2p": "enhance", "webrtc": ["SRTP", "DC"], "upnp": "enable", "ai": "remote", "video_feature": {"resolution": ["1080P", "720P"], "codec": ["H264", "H265"], "bitrate": [2048, 4096], "fps": [15, 30]}, "audio_feature": {"codec": ["AAC"], "sample_rate": [8000, 16000], "bitrate": [64, 128]}}'::JSONB,
      '{"video": {"flip": false, "osd": true, "brightness": 50, "sharpness": 50}, "storage": {"mode": "cloud", "capacity": 128, "status": true}, "record": {"mode": "continuous", "duration": 60}, "motion_detection": {"status": true, "sensitivity": 70, "area": [0, 0, 100, 100]}, "decibel_detection": {"status": false, "sensitivity": 50}, "cruise": null, "siren": null, "volume": 80, "privacy_mode": false, "night_vision": true, "motion_tracking": true}'::JSONB,
+     '{"volume": 100, "record": {"status": true, "mode": 1}, "timestamp": 1633072800000}'::JSONB,
      '1.1.0', '2.1.0', '192.168.1.11', false, POINT(116.4074, 39.9042),
      true, NOW(), NOW() - INTERVAL '1 hour', NOW()),
     ('dev-003', 'device-secret-003', 'lic-003', 'Smart Lock London', 'prod-001', 'group-001',
      '{"p2p": "standard", "webrtc": ["SRTP"], "upnp": "disable", "ai": null, "video_feature": null, "audio_feature": {"codec": ["AAC"], "sample_rate": [8000], "bitrate": [64]}}'::JSONB,
      '{"video": null, "storage": {"mode": "local", "capacity": 16, "status": true}, "record": null, "motion_detection": null, "decibel_detection": {"status": true, "sensitivity": 80}, "cruise": null, "siren": {"duration": 10, "volume": 90}, "volume": 60, "privacy_mode": false, "night_vision": false, "motion_tracking": false}'::JSONB,
+     '{"volume": 100, "record": {"status": true, "mode": 1}, "timestamp": 1633072800000}'::JSONB,
      '1.0.5', '2.0.0', '192.168.1.12', true, POINT(-0.1278, 51.5074),
      true, NOW(), NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;

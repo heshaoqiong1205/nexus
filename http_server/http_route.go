@@ -13,6 +13,7 @@ import (
 	"nexus/services/things"
 	"nexus/services/user"
 	"strings"
+	"time"
 
 	external_storage "nexus/external/storage"
 
@@ -38,15 +39,17 @@ func init() {
 }
 
 type Response struct {
-    Success bool        `json:"success"`
-    Result  interface{} `json:"result,omitempty"`
-    Error   string      `json:"error,omitempty"`
+    Success   bool        `json:"success"`
+	Timestamp int64   `json:"timestamp"`
+    Result    interface{} `json:"result,omitempty"`
+    Error     string      `json:"error,omitempty"`
 }
 
 // ErrorResponse creates a standardized error response
 func ErrorResponse(message string) Response {
     return Response{
         Success: false,
+		Timestamp: time.Now().UnixMilli(),
         Error:   message,
     }
 }
@@ -55,6 +58,7 @@ func ErrorResponse(message string) Response {
 func SuccessResponse(data interface{}) Response {
     return Response{
         Success: true,
+		Timestamp: time.Now().UnixMilli(),
         Result:  data,
     }
 }
@@ -109,8 +113,16 @@ func Run(config *setting.Server) error {
 
     // Device config
     route.GET("/things/device/config", getDeviceConfig)
-
     route.GET("/things/device/credentials", generateGetStorageCredentials)
+
+	// Device report event
+	route.POST("/things/device/event", handleEvent)
+	// Device report state
+	route.POST("/things/device/state", handleState)
+	// Get device desired state
+	route.GET("/things/device/state/desired", fetchDesiredState)
+	// Confirm device desired state
+	route.POST("/things/device/state/desired", confirmDesiredState)
 
     // Use configuration values for server setup
     server := &http.Server{
@@ -406,4 +418,81 @@ func userDetails(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, SuccessResponse(user))
+}
+
+func handleEvent(c *gin.Context) {
+	deviceID := getDeviceID(c)
+	var event things.Event
+	if err := c.ShouldBindJSON(&event); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid request payload"))
+		return
+	}
+
+	// Process the device event
+	if err := thingsService.HandleEvent(deviceID, event); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse("Failed to report device event"))
+		return
+	}
+
+	c.JSON(http.StatusOK, nil)
+}
+
+func handleState(c *gin.Context) {
+	deviceID := getDeviceID(c)
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Missing device-id header"))
+		return
+	}
+
+	var state things.State
+	if err := c.ShouldBindJSON(&state); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid request payload"))
+		return
+	}
+
+	// Process the device state
+	if err := thingsService.HandleState(deviceID, state); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse("Failed to report device state"))
+		return
+	}
+	c.JSON(http.StatusOK, nil)
+}
+
+func fetchDesiredState(c *gin.Context) {
+	deviceID := getDeviceID(c)
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Missing device-id header"))
+		return
+	}
+
+	// Get device desired state
+	state, err := thingsService.FetchDesiredState(deviceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse("Failed to get device desired state"))
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse(state))
+}
+
+func confirmDesiredState(c *gin.Context) {
+	deviceID := getDeviceID(c)
+	if deviceID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Missing device-id header"))
+		return
+	}
+
+	var confirmRequest things.ConfirmDesiredStateRequest
+	if err := c.ShouldBindJSON(&confirmRequest); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid request payload"))
+		return
+	}
+
+	// Confirm the device desired state
+	if err := thingsService.ConfirmDesiredState(deviceID, confirmRequest); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse("Failed to confirm device desired state"))
+		return
+	}
+
+	c.JSON(http.StatusOK, nil)
 }

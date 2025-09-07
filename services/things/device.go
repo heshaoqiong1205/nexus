@@ -12,7 +12,7 @@ type IoTDevice struct {
 	ProductID  string   `json:"product_id"`
 	GroupID    string   `json:"group_id"`
 	Features   Features `json:"features"`
-	State      state    `json:"state"`
+	State      State    `json:"state"`
 	Version    string   `json:"version"`
 	SDKVersion string   `json:"sdk_version"`
 	IP         string   `json:"ip"`
@@ -24,7 +24,7 @@ type IoTDevice struct {
 }
 
 func NewIoTDevice(device models.Device) (*IoTDevice, error) {
-	var state state
+	var state State
 	var features Features
 	err := json.Unmarshal(device.Features, &features)
 	if err != nil {

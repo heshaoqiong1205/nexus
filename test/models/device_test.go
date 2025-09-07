@@ -13,8 +13,7 @@ import (
 var testDeviceModels models.DeviceModels
 
 func mockDeviceRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"id", "secret_key", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip",
-		"online", "location", "created_at", "active_at", "updated_at", "status"}).
+	return sqlmock.NewRows([]string{"id", "secret_key", "license_id", "name", "product_id", "group_id", "features", "state", "version", "sdk_version", "ip", "online", "location", "created_at", "active_at", "updated_at", "status"}).
 		AddRow(StructToSlice(mockDevice0())...)
 }
 
