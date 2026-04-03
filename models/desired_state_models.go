@@ -1,20 +1,21 @@
 package models
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/datatypes"
 )
 
 type DesiredState struct {
-	ID             string         `gorm:"primary_key" json:"id"` // DeviceID as primary key
-	State   	   datatypes.JSON `gorm:"type:text" json:"state"`
-	Version        int            `gorm:"default:1" json:"version"`
-	Status         bool           `gorm:"default:true" json:"status"`
-	LastDesiredID  int64          `json:"last_desired_id"`
-	ConfirmedAt    *time.Time     `json:"confirmed_at,omitempty"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	ID            string         `gorm:"primaryKey" json:"id"` // DeviceID as primary key
+	State         datatypes.JSON `gorm:"column:state;type:text" json:"state"`
+	Version       int            `gorm:"default:1" json:"version"`
+	Status        bool           `gorm:"default:true" json:"status"`
+	LastDesiredID int64          `json:"last_desired_id"`
+	ConfirmedAt   *time.Time     `json:"confirmed_at,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 type IDesiredStateModels interface {
@@ -30,10 +31,9 @@ type IDesiredStateModels interface {
 type DesiredStateModels struct {
 }
 
-
 func (d *DesiredStateModels) Create(desiredState *DesiredState) error {
 	if desiredState.ID == "" {
-		desiredState.ID = GenerateID()
+		return errors.New("desired state id cannot be empty")
 	}
 	if desiredState.State == nil {
 		desiredState.State = datatypes.JSON("{}")
@@ -57,7 +57,14 @@ func (d *DesiredStateModels) Delete(deviceID string) error {
 }
 
 func (d *DesiredStateModels) UpdateWithVersion(desiredState *DesiredState, version int) error {
-	return db.Model(&DesiredState{}).Where("id = ? and version = ?", desiredState.ID, version).Updates(desiredState).Error
+	result := db.Model(&DesiredState{}).Where("id = ? and version = ?", desiredState.ID, version).Updates(desiredState)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("desired state version conflict")
+	}
+	return nil
 }
 
 func (d *DesiredStateModels) List(deviceIDs []string, page int, pageSize int, orderBy *string) ([]DesiredState, error) {

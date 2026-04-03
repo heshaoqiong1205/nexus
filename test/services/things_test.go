@@ -9,7 +9,28 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 )
+
+func boolPtr(v bool) *bool { return &v }
+func intPtr(v int) *int    { return &v }
+
+func reportedVideo(flip, osd bool, brightness, sharpness int) *things.Video {
+	return &things.Video{
+		Flip:       boolPtr(flip),
+		OSD:        boolPtr(osd),
+		Brightness: intPtr(brightness),
+		Sharpness:  intPtr(sharpness),
+	}
+}
+
+func reportedInt(value int) *things.IntValue {
+	return &things.IntValue{Value: intPtr(value)}
+}
+
+func reportedBool(value bool) *things.BoolValue {
+	return &things.BoolValue{Value: boolPtr(value)}
+}
 
 type MockDeviceModels struct {
 	mock.Mock
@@ -215,7 +236,7 @@ func TestFetchDesiredStateNoDesiredState(t *testing.T) {
 	}, nil)
 
 	// Setup no desired state exists
-	mockDesiredStateModels.On("Get", "device123").Return(nil, assert.AnError)
+	mockDesiredStateModels.On("Get", "device123").Return(nil, gorm.ErrRecordNotFound)
 
 	service := things.NewThingServiceWithModels(
 		mockDeviceModels,
@@ -239,12 +260,14 @@ func TestFetchDesiredStateSuccess(t *testing.T) {
 	// Create sample desired state JSON
 	desiredStateJSON := `{
 		"video": {
+			"epoch": 0,
 			"id": 1,
-			"bitrate": 1000,
-			"resolution": {"width": 1920, "height": 1080},
-			"frame_rate": 30
+			"flip": false,
+			"osd": true,
+			"brightness": 75,
+			"sharpness": 50
 		},
-		"privacy_mode": {"id": 2, "value": false}
+		"privacy_mode": {"epoch": 0, "id": 2, "value": false}
 	}`
 
 	// Setup device exists
@@ -275,45 +298,9 @@ func TestFetchDesiredStateSuccess(t *testing.T) {
 	assert.Equal(t, int64(1), desiredState.Video.ID)
 	assert.NotNil(t, desiredState.PrivacyMode)
 	assert.Equal(t, int64(2), desiredState.PrivacyMode.ID)
+	assert.Equal(t, int64(0), desiredState.PrivacyMode.Epoch)
 
 	mockDeviceModels.AssertExpectations(t)
-	mockDesiredStateModels.AssertExpectations(t)
-}
-
-func TestConfirmDesiredStateSuccess(t *testing.T) {
-	mockDesiredStateModels := new(MockDesiredStateModels)
-
-	// Create sample desired state JSON
-	desiredStateJSON := `{
-		"video": {"id": 1, "bitrate": 1000},
-		"privacy_mode": {"id": 2, "value": false}
-	}`
-
-	// Setup existing desired state
-	mockDesiredStateModels.On("Get", "device123").Return(models.DesiredState{
-		ID:      "device123",
-		State:   []byte(desiredStateJSON),
-		Version: 1,
-		Status:  true,
-	}, nil)
-
-	// Setup successful update
-	mockDesiredStateModels.On("UpdateWithVersion", mock.AnythingOfType("*models.DesiredState"), 1).Return(nil)
-
-	service := things.NewThingServiceWithModels(
-		new(MockDeviceModels),
-		new(MockLicenseModels),
-		new(MockProductModels),
-		mockDesiredStateModels,
-	)
-
-	confirmRequest := things.ConfirmDesiredStateRequest{
-		LastID: 1, // This should remove video but keep privacy_mode
-	}
-
-	err := service.ConfirmDesiredState("device123", confirmRequest)
-	assert.NoError(t, err)
-
 	mockDesiredStateModels.AssertExpectations(t)
 }
 
@@ -321,8 +308,8 @@ func TestSetDesiredStateDeviceNotFound(t *testing.T) {
 	mockDeviceModels := new(MockDeviceModels)
 	mockDesiredStateModels := new(MockDesiredStateModels)
 
-	// Setup device not found - will be called 5 times due to retry logic
-	mockDeviceModels.On("Get", "non-existent-device").Return(nil, assert.AnError).Times(5)
+	// Setup device not found
+	mockDeviceModels.On("Get", "non-existent-device").Return(nil, assert.AnError).Once()
 
 	service := things.NewThingServiceWithModels(
 		mockDeviceModels,
@@ -331,18 +318,11 @@ func TestSetDesiredStateDeviceNotFound(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	state := things.State{
-		Video: &things.Video{
-			Flip:       &[]bool{false}[0],
-			OSD:        &[]bool{true}[0],
-			Brightness: &[]int{75}[0],
-			Sharpness:  &[]int{50}[0],
-		},
-	}
+	state := things.State{Video: reportedVideo(false, true, 75, 50)}
 
 	err := service.SetDesiredState("non-existent-device", state)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to set desired state after 5 attempts")
+	assert.Contains(t, err.Error(), "device not found")
 
 	mockDeviceModels.AssertExpectations(t)
 }
@@ -351,11 +331,11 @@ func TestSetDesiredStateDeviceInactive(t *testing.T) {
 	mockDeviceModels := new(MockDeviceModels)
 	mockDesiredStateModels := new(MockDesiredStateModels)
 
-	// Setup inactive device - will be called 5 times due to retry logic
+	// Setup inactive device
 	mockDeviceModels.On("Get", "device123").Return(models.Device{
 		ID:     "device123",
 		Status: false, // Inactive device
-	}, nil).Times(5)
+	}, nil).Once()
 
 	service := things.NewThingServiceWithModels(
 		mockDeviceModels,
@@ -364,18 +344,11 @@ func TestSetDesiredStateDeviceInactive(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	state := things.State{
-		Video: &things.Video{
-			Flip:       &[]bool{false}[0],
-			OSD:        &[]bool{true}[0],
-			Brightness: &[]int{75}[0],
-			Sharpness:  &[]int{50}[0],
-		},
-	}
+	state := things.State{Video: reportedVideo(false, true, 75, 50)}
 
 	err := service.SetDesiredState("device123", state)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to set desired state after 5 attempts")
+	assert.Contains(t, err.Error(), "device is not active")
 
 	mockDeviceModels.AssertExpectations(t)
 }
@@ -391,11 +364,14 @@ func TestSetDesiredStateCreateNew(t *testing.T) {
 	}, nil)
 
 	// Setup no existing desired state
-	mockDesiredStateModels.On("Get", "device123").Return(nil, assert.AnError)
+	mockDesiredStateModels.On("Get", "device123").Return(nil, gorm.ErrRecordNotFound)
 
-	// Setup successful update (which will fail) then successful create
-	mockDesiredStateModels.On("Update", mock.AnythingOfType("*models.DesiredState")).Return(assert.AnError)
-	mockDesiredStateModels.On("Create", mock.AnythingOfType("*models.DesiredState")).Return(nil)
+	mockDesiredStateModels.On("Create", mock.MatchedBy(func(desiredState *models.DesiredState) bool {
+		return desiredState.ID == "device123" &&
+			desiredState.Version == 1 &&
+			desiredState.LastDesiredID == 1 &&
+			desiredState.Status
+	})).Return(nil)
 
 	service := things.NewThingServiceWithModels(
 		mockDeviceModels,
@@ -404,14 +380,7 @@ func TestSetDesiredStateCreateNew(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	state := things.State{
-		Video: &things.Video{
-			Flip:       &[]bool{false}[0],
-			OSD:        &[]bool{true}[0],
-			Brightness: &[]int{75}[0],
-			Sharpness:  &[]int{50}[0],
-		},
-	}
+	state := things.State{Video: reportedVideo(false, true, 75, 50)}
 
 	err := service.SetDesiredState("device123", state)
 	assert.NoError(t, err)
@@ -432,12 +401,18 @@ func TestSetDesiredStateUpdateExisting(t *testing.T) {
 
 	// Setup existing desired state
 	mockDesiredStateModels.On("Get", "device123").Return(models.DesiredState{
-		ID:      "device123",
-		Version: 1,
+		ID:            "device123",
+		Version:       1,
+		LastDesiredID: 4,
+		State:         []byte(`{"privacy_mode":{"epoch":0,"id":4,"value":false}}`),
 	}, nil)
 
-	// Setup successful update
-	mockDesiredStateModels.On("Update", mock.AnythingOfType("*models.DesiredState")).Return(nil)
+	mockDesiredStateModels.On("UpdateWithVersion", mock.MatchedBy(func(desiredState *models.DesiredState) bool {
+		return desiredState.ID == "device123" &&
+			desiredState.Version == 2 &&
+			desiredState.LastDesiredID == 5 &&
+			desiredState.Status
+	}), 1).Return(nil)
 
 	service := things.NewThingServiceWithModels(
 		mockDeviceModels,
@@ -446,20 +421,42 @@ func TestSetDesiredStateUpdateExisting(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	state := things.State{
-		Video: &things.Video{
-			Flip:       &[]bool{false}[0],
-			OSD:        &[]bool{true}[0],
-			Brightness: &[]int{75}[0],
-			Sharpness:  &[]int{50}[0],
-		},
-	}
+	state := things.State{Video: reportedVideo(false, true, 75, 50)}
 
 	err := service.SetDesiredState("device123", state)
 	assert.NoError(t, err)
 
 	mockDeviceModels.AssertExpectations(t)
 	mockDesiredStateModels.AssertExpectations(t)
+}
+
+func TestNewDesiredStateCreatesFieldDiffs(t *testing.T) {
+	originPrivacyMode := true
+	updatePrivacyMode := false
+	originVolume := 40
+	updateVolume := 80
+	flip := false
+	osd := true
+	brightness := 75
+	sharpness := 50
+
+	lastID, desiredState := things.NewDesiredState(7, &things.State{
+		Volume:      reportedInt(originVolume),
+		PrivacyMode: reportedBool(originPrivacyMode),
+	}, &things.State{
+		Video: reportedVideo(flip, osd, brightness, sharpness),
+		Volume:      reportedInt(updateVolume),
+		PrivacyMode: reportedBool(updatePrivacyMode),
+	})
+
+	assert.Equal(t, int64(10), lastID)
+	assert.NotNil(t, desiredState.Video)
+	assert.Equal(t, int64(8), desiredState.Video.ID)
+	assert.Equal(t, int64(0), desiredState.Video.Epoch)
+	assert.NotNil(t, desiredState.Volume)
+	assert.Equal(t, int64(9), desiredState.Volume.ID)
+	assert.NotNil(t, desiredState.PrivacyMode)
+	assert.Equal(t, int64(10), desiredState.PrivacyMode.ID)
 }
 
 func TestGetDesiredStateHistoryDeviceNotFound(t *testing.T) {
@@ -476,7 +473,7 @@ func TestGetDesiredStateHistoryDeviceNotFound(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	_, err := service.GetDesiredStateHistory("non-existent-device", 1, 10)
+	_, err := service.GetDesiredState("non-existent-device", 1, 10)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "device not found")
 
@@ -522,7 +519,7 @@ func TestGetDesiredStateHistorySuccess(t *testing.T) {
 		mockDesiredStateModels,
 	)
 
-	history, err := service.GetDesiredStateHistory("device123", 1, 10)
+	history, err := service.GetDesiredState("device123", 1, 10)
 	assert.NoError(t, err)
 	assert.Len(t, history, 2)
 	assert.Equal(t, "device123", history[0].ID)

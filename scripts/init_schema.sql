@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS cloud_recordings (
 -- Desired States table for device state management
 CREATE TABLE IF NOT EXISTS desired_states (
     id VARCHAR(255) PRIMARY KEY, -- DeviceID as primary key (one desired state per device)
-    desired_state TEXT NOT NULL, -- JSON format desired state
+    state TEXT NOT NULL, -- JSON format desired state
     version INTEGER DEFAULT 1, -- Version for optimistic locking
     status BOOLEAN DEFAULT true, -- Whether this desired state is valid/active
     last_desired_id INTEGER, -- Last desired ID reference

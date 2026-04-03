@@ -26,27 +26,27 @@ func mockDesiredStatesRows() *sqlmock.Rows {
 func mockDesiredState0() models.DesiredState {
 	desiredStateJSON, _ := json.Marshal(map[string]interface{}{
 		"volume": map[string]interface{}{
-			"value":    85,
+			"value":     85,
 			"timestamp": time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":       1234,
+			"id":        1234,
 		},
 		"record": map[string]interface{}{
-			"status": true,
-			"mode":   2,
+			"status":    true,
+			"mode":      2,
 			"timestamp": time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":       1235,
+			"id":        1235,
 		},
 		"video": map[string]interface{}{
 			"brightness": 70,
 			"contrast":   60,
-			"timestamp": time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":       1236,
+			"timestamp":  time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
+			"id":         1236,
 		},
 	})
 
 	return models.DesiredState{
 		ID:            "dev-001", // DeviceID as primary key
-		State:  desiredStateJSON,
+		State:         desiredStateJSON,
 		Version:       1,
 		Status:        true,
 		LastDesiredID: 1001,
@@ -59,22 +59,22 @@ func mockDesiredState0() models.DesiredState {
 func mockDesiredState1() models.DesiredState {
 	desiredStateJSON, _ := json.Marshal(map[string]interface{}{
 		"volume": map[string]interface{}{
-			"value":    90,
-			"mute":     false,
+			"value":     90,
+			"mute":      false,
 			"timestamp": time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":       1234,
+			"id":        1234,
 		},
 		"record": map[string]interface{}{
-			"status": false,
-			"mode":   1,
+			"status":    false,
+			"mode":      1,
 			"timestamp": time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":       1235,
+			"id":        1235,
 		},
 		"motion_detection": map[string]interface{}{
 			"status":      true,
 			"sensitivity": 80,
 			"timestamp":   time.Date(2023, time.October, 25, 14, 30, 0, 0, time.UTC).UnixMilli(),
-			"id":         1236,
+			"id":          1236,
 		},
 	})
 
@@ -82,7 +82,7 @@ func mockDesiredState1() models.DesiredState {
 
 	return models.DesiredState{
 		ID:            "dev-002", // DeviceID as primary key
-		State:  desiredStateJSON,
+		State:         desiredStateJSON,
 		Version:       2,
 		Status:        true,
 		LastDesiredID: 1002,
@@ -242,13 +242,13 @@ func TestUpdateWithVersionDesiredState(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec("UPDATE \"desired_states\" SET").
-		WithArgs("dev-001", sqlmock.AnyArg(), 1, true, 1001, sqlmock.AnyArg(), sqlmock.AnyArg(), "dev-001", 2).
+		WithArgs("dev-001", sqlmock.AnyArg(), 1, true, 1001, sqlmock.AnyArg(), sqlmock.AnyArg(), "dev-001", 1).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
 	models.MockSetup(db)
 	desiredState := mockDesiredState0()
-	version := desiredState.Version + 1
+	version := desiredState.Version
 	err = testDesiredStateModels.UpdateWithVersion(&desiredState, version)
 	if err != nil {
 		t.Errorf("Expected no error when confirming desired state %s", err)

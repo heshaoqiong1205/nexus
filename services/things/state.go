@@ -22,11 +22,18 @@ func (l *location) Validate() error {
 	return nil
 }
 
+type StateMeta struct {
+	Epoch     *int64 `json:"epoch,omitempty"`
+	ID        *int64 `json:"id,omitempty"`
+	Timestamp *int64 `json:"timestamp,omitempty"`
+}
+
 type Video struct {
 	Flip       *bool `json:"flip"`
 	OSD        *bool `json:"osd"`
 	Brightness *int  `json:"brightness"`
 	Sharpness  *int  `json:"sharpness"`
+	StateMeta
 }
 
 func (v *Video) Validate() error {
@@ -99,6 +106,7 @@ type Storage struct {
 	Mode     *string `json:"mode"`
 	Capacity *int    `json:"capacity"`
 	Status   *bool   `json:"status"`
+	StateMeta
 }
 
 func (s *Storage) Validate() error {
@@ -158,6 +166,7 @@ func (s *Storage) Equal(other *Storage) bool {
 type Record struct {
 	Mode     *string `json:"mode"`
 	Duration *int    `json:"duration"`
+	StateMeta
 }
 
 func (r *Record) Validate() error {
@@ -206,6 +215,7 @@ type VMD struct {
 	Status      *bool `json:"status"`
 	Sensitivity *int  `json:"sensitivity"`
 	Area        []int `json:"area"`
+	StateMeta
 }
 
 func (v *VMD) Validate() error {
@@ -263,6 +273,7 @@ func (v *VMD) Equal(other *VMD) bool {
 type Detection struct {
 	Status      *bool `json:"status"`
 	Sensitivity *int  `json:"sensitivity"`
+	StateMeta
 }
 
 func (d *Detection) Validate() error {
@@ -366,8 +377,9 @@ func (p *Point) Equal(other *Point) bool {
 
 type Cruise struct {
 	Status      *string `json:"status"`
-	PresetPoint []Point  `json:"preset_point"`
-	Route       []int    `json:"route"`
+	PresetPoint []Point `json:"preset_point"`
+	Route       []int   `json:"route"`
+	StateMeta
 }
 
 func (c *Cruise) Validate() error {
@@ -431,6 +443,7 @@ func (c *Cruise) Equal(other *Cruise) bool {
 type Siren struct {
 	Duration *int `json:"duration"`
 	Volume   *int `json:"volume"`
+	StateMeta
 }
 
 func (s *Siren) Validate() error {
@@ -478,18 +491,28 @@ func (s *Siren) Equal(other *Siren) bool {
 	return true
 }
 
+type IntValue struct {
+	Value *int `json:"value"`
+	StateMeta
+}
+
+type BoolValue struct {
+	Value *bool `json:"value"`
+	StateMeta
+}
+
 type State struct {
-	Video            *Video     `json:"video"`
-	Storage          *Storage   `json:"storage"`
-	Record           *Record    `json:"record"`
-	MotionDetection  *VMD       `json:"motion_detection"`
-	DecibelDetection *Detection `json:"decibel_detection"`
-	Cruise           *Cruise    `json:"cruise"`
-	Siren            *Siren     `json:"siren"`
-	Volume           *int       `json:"volume"`
-	PrivacyMode      *bool      `json:"privacy_mode"`
-	NightVision      *bool      `json:"night_vision"`
-	MotionTracking   *bool      `json:"motion_tracking"`
+	Video            *Video      `json:"video"`
+	Storage          *Storage    `json:"storage"`
+	Record           *Record     `json:"record"`
+	MotionDetection  *VMD        `json:"motion_detection"`
+	DecibelDetection *Detection  `json:"decibel_detection"`
+	Cruise           *Cruise     `json:"cruise"`
+	Siren            *Siren      `json:"siren"`
+	Volume           *IntValue   `json:"volume"`
+	PrivacyMode      *BoolValue  `json:"privacy_mode"`
+	NightVision      *BoolValue  `json:"night_vision"`
+	MotionTracking   *BoolValue  `json:"motion_tracking"`
 }
 
 func (state *State) Validate() error {
@@ -528,8 +551,8 @@ func (state *State) Validate() error {
 			return err
 		}
 	}
-	if state.Volume != nil {
-		if *state.Volume < 0 || *state.Volume > 100 {
+	if state.Volume != nil && state.Volume.Value != nil {
+		if *state.Volume.Value < 0 || *state.Volume.Value > 100 {
 			return fmt.Errorf("volume must be between 0 and 100")
 		}
 	}
@@ -545,226 +568,364 @@ func (state *State) Marshal() ([]byte, error) {
 
 type DesiredVideo struct {
 	Video
-	ID        int64  `json:"id"`
-	Timestamp int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredStorage struct {
 	Storage
-	ID        int64  `json:"id"`
-	Timestamp int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredRecord struct {
 	Record
-	ID         int64  `json:"id"`
-	Timestamp  int64   `json:"timestamp"`
-
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredVMD struct {
 	VMD
-	ID         int64  `json:"id"`
-	Timestamp  int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredDecibelDetection struct {
 	Detection
-	ID         int64  `json:"id"`
-	Timestamp  int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredCruise struct {
 	Cruise
-	ID         int64  `json:"id"`
-	Timestamp  int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredSiren struct {
 	Siren
-	ID         int64  `json:"id"`
-	Timestamp  int64   `json:"timestamp"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredVolume struct {
-	Value     *int    `json:"value"`
-	ID        int64   `json:"id"`
-	Timestamp int64   `json:"timestamp"`
+	Value     *int  `json:"value"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type DesiredBoolean struct {
-	Value     *bool   `json:"value"`
-	ID        int64   `json:"id"`
-	Timestamp int64   `json:"timestamp"`
+	Value     *bool `json:"value"`
+	Epoch     int64 `json:"epoch"`
+	ID        int64 `json:"id"`
+	Timestamp int64 `json:"timestamp"`
 }
-
 
 type DesiredState struct {
-	Video            *DesiredVideo     `json:"video"`
-	Storage          *DesiredStorage   `json:"storage"`
-	Record           *DesiredRecord   `json:"record"`
-	MotionDetection  *DesiredVMD       `json:"motion_detection"`
+	Video            *DesiredVideo            `json:"video"`
+	Storage          *DesiredStorage          `json:"storage"`
+	Record           *DesiredRecord           `json:"record"`
+	MotionDetection  *DesiredVMD              `json:"motion_detection"`
 	DecibelDetection *DesiredDecibelDetection `json:"decibel_detection"`
-	Cruise           *DesiredCruise   `json:"cruise"`
-	Siren            *DesiredSiren     `json:"siren"`
-	Volume           *DesiredVolume     `json:"volume"`
-	PrivacyMode      *DesiredBoolean    `json:"privacy_mode"`
-	NightVision      *DesiredBoolean    `json:"night_vision"`
-	MotionTracking   *DesiredBoolean    `json:"motion_tracking"`
+	Cruise           *DesiredCruise           `json:"cruise"`
+	Siren            *DesiredSiren            `json:"siren"`
+	Volume           *DesiredVolume           `json:"volume"`
+	PrivacyMode      *DesiredBoolean          `json:"privacy_mode"`
+	NightVision      *DesiredBoolean          `json:"night_vision"`
+	MotionTracking   *DesiredBoolean          `json:"motion_tracking"`
 }
 
-func (state *DesiredState) Confirm(lastID int64) {
-	if state.Video != nil && state.Video.ID <= lastID {
-		state.Video = nil
+func boolPtrEqual(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
 	}
-	if state.Storage != nil && state.Storage.ID <= lastID {
-		state.Storage = nil
+	return *a == *b
+}
+
+func intPtrEqual(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
 	}
-	if state.Record != nil && state.Record.ID <= lastID {
-		state.Record = nil
+	return *a == *b
+}
+
+func intValue(value *IntValue) *int {
+	if value == nil {
+		return nil
 	}
-	if state.MotionDetection != nil && state.MotionDetection.ID <= lastID {
-		state.MotionDetection = nil
+	return value.Value
+}
+
+func boolValue(value *BoolValue) *bool {
+	if value == nil {
+		return nil
 	}
-	if state.DecibelDetection != nil && state.DecibelDetection.ID <= lastID {
-		state.DecibelDetection = nil
+	return value.Value
+}
+
+func cloneVideo(video *Video) Video {
+	if video == nil {
+		return Video{}
 	}
-	if state.Cruise != nil && state.Cruise.ID <= lastID {
-		state.Cruise = nil
+	return Video{
+		Flip:       video.Flip,
+		OSD:        video.OSD,
+		Brightness: video.Brightness,
+		Sharpness:  video.Sharpness,
 	}
-	if state.Siren != nil && state.Siren.ID <= lastID {
-		state.Siren = nil
+}
+
+func cloneStorage(storage *Storage) Storage {
+	if storage == nil {
+		return Storage{}
 	}
-	if state.Volume != nil && state.Volume.ID <= lastID {
-		state.Volume = nil
+	return Storage{
+		Mode:     storage.Mode,
+		Capacity: storage.Capacity,
+		Status:   storage.Status,
 	}
-	if state.PrivacyMode != nil && state.PrivacyMode.ID <= lastID {
-		state.PrivacyMode = nil
+}
+
+func cloneRecord(record *Record) Record {
+	if record == nil {
+		return Record{}
 	}
-	if state.NightVision != nil && state.NightVision.ID <= lastID {
-		state.NightVision = nil
+	return Record{
+		Mode:     record.Mode,
+		Duration: record.Duration,
 	}
-	if state.MotionTracking != nil && state.MotionTracking.ID <= lastID {
-		state.MotionTracking = nil
+}
+
+func cloneVMD(vmd *VMD) VMD {
+	if vmd == nil {
+		return VMD{}
 	}
+	area := append([]int(nil), vmd.Area...)
+	return VMD{
+		Status:      vmd.Status,
+		Sensitivity: vmd.Sensitivity,
+		Area:        area,
+	}
+}
+
+func cloneDetection(detection *Detection) Detection {
+	if detection == nil {
+		return Detection{}
+	}
+	return Detection{
+		Status:      detection.Status,
+		Sensitivity: detection.Sensitivity,
+	}
+}
+
+func cloneCruise(cruise *Cruise) Cruise {
+	if cruise == nil {
+		return Cruise{}
+	}
+	presetPoints := append([]Point(nil), cruise.PresetPoint...)
+	route := append([]int(nil), cruise.Route...)
+	return Cruise{
+		Status:      cruise.Status,
+		PresetPoint: presetPoints,
+		Route:       route,
+	}
+}
+
+func cloneSiren(siren *Siren) Siren {
+	if siren == nil {
+		return Siren{}
+	}
+	return Siren{
+		Duration: siren.Duration,
+		Volume:   siren.Volume,
+	}
+}
+
+func nextDesiredVersion(currentEpoch, currentID int64) (int64, int64) {
+	if currentID == int64(^uint64(0)>>1) {
+		return currentEpoch + 1, 0
+	}
+	return currentEpoch, currentID + 1
 }
 
 func NewDesiredState(startID int64, origin, update *State) (int64, DesiredState) {
+	nextID, _, state := NewDesiredStateWithEpoch(0, startID, update)
+	return nextID, state
+}
+
+func NewDesiredStateWithEpoch(startEpoch, startID int64, update *State) (int64, int64, DesiredState) {
 	state := DesiredState{}
-	ID := startID
-	if update.Video != nil && !update.Video.Equal(origin.Video) {
-		ID++
-		// Assuming DesiredVideo has the same field names as Video
-		// Modify this to match the actual DesiredVideo struct definition
-		state.Video.Flip = update.Video.Flip
-		state.Video.OSD = update.Video.OSD
-		state.Video.Brightness = update.Video.Brightness
-		state.Video.Sharpness = update.Video.Sharpness
-		state.Video.ID =  ID
-		state.Video.Timestamp = time.Now().UnixMilli()
+	epoch := startEpoch
+	id := startID
+	now := time.Now().UnixMilli()
+
+	if update.Video != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Video = &DesiredVideo{
+			Video:     cloneVideo(update.Video),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.Storage != nil && !update.Storage.Equal(origin.Storage) {
-		ID++
-		// Assuming DesiredStorage has the same field names as Storage
-		// Modify this to match the actual DesiredStorage struct definition
-		state.Storage.Capacity = update.Storage.Capacity
-		state.Storage.Mode = update.Storage.Mode
-		state.Storage.Status = update.Storage.Status
-		state.Storage.ID =  ID
-		state.Storage.Timestamp = time.Now().UnixMilli()
+	if update.Storage != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Storage = &DesiredStorage{
+			Storage:   cloneStorage(update.Storage),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.MotionDetection != nil && !update.MotionDetection.Equal(origin.MotionDetection) {
-		ID++
-		// Assuming DesiredMotionDetection has the same field names as MotionDetection
-		// Modify this to match the actual DesiredMotionDetection struct definition
-		state.MotionDetection.Status = update.MotionDetection.Status
-		state.MotionDetection.Sensitivity = update.MotionDetection.Sensitivity
-		state.MotionDetection.ID = ID
-		state.MotionDetection.Timestamp = time.Now().UnixMilli()
+	if update.MotionDetection != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.MotionDetection = &DesiredVMD{
+			VMD:       cloneVMD(update.MotionDetection),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.DecibelDetection != nil && !update.DecibelDetection.Equal(origin.DecibelDetection) {
-		ID++
-		// Assuming DesiredDecibelDetection has the same field names as DecibelDetection
-		// Modify this to match the actual DesiredDecibelDetection struct definition
-		state.DecibelDetection.Status = update.DecibelDetection.Status
-		state.DecibelDetection.Sensitivity = update.DecibelDetection.Sensitivity
-		state.DecibelDetection.ID = ID
-		state.DecibelDetection.Timestamp = time.Now().UnixMilli()
+	if update.DecibelDetection != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.DecibelDetection = &DesiredDecibelDetection{
+			Detection: cloneDetection(update.DecibelDetection),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-
-	if update.Record != nil && !update.Record.Equal(origin.Record) {
-		ID++
-		// Assuming DesiredRecord has the same field names as Record
-		// Modify this to match the actual DesiredRecord struct definition
-		state.Record.Duration = update.Record.Duration
-		state.Record.Mode = update.Record.Mode
-		state.Record.ID =  ID
-		state.Record.Timestamp = time.Now().UnixMilli()
+	if update.Record != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Record = &DesiredRecord{
+			Record:    cloneRecord(update.Record),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.Cruise != nil && !update.Cruise.Equal(origin.Cruise) {
-		ID++
-		// Assuming DesiredCruise has the same field names as Cruise
-		// Modify this to match the actual DesiredCruise struct definition
-		state.Cruise.Status = update.Cruise.Status
-		state.Cruise.PresetPoint = update.Cruise.PresetPoint
-		state.Cruise.Route = update.Cruise.Route
-		state.Cruise.ID =  ID
-		state.Cruise.Timestamp = time.Now().UnixMilli()
-
+	if update.Cruise != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Cruise = &DesiredCruise{
+			Cruise:    cloneCruise(update.Cruise),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.DecibelDetection != nil && !update.DecibelDetection.Equal(origin.DecibelDetection) {
-		ID++
-		// Assuming DesiredDecibelDetection has the same field names as DecibelDetection
-		// Modify this to match the actual DesiredDecibelDetection struct definition
-		state.DecibelDetection.Status = update.DecibelDetection.Status
-		state.DecibelDetection.Sensitivity = update.DecibelDetection.Sensitivity
-		state.DecibelDetection.ID = ID
-		state.DecibelDetection.Timestamp = time.Now().UnixMilli()
+	if update.Siren != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Siren = &DesiredSiren{
+			Siren:     cloneSiren(update.Siren),
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.MotionDetection != nil && !update.MotionDetection.Equal(origin.MotionDetection) {
-		ID++
-		// Assuming DesiredMotionDetection has the same field names as MotionDetection
-		// Modify this to match the actual DesiredMotionDetection struct definition
-		state.MotionDetection.Status = update.MotionDetection.Status
-		state.MotionDetection.Sensitivity = update.MotionDetection.Sensitivity
-		state.MotionDetection.ID = ID
-		state.MotionDetection.Timestamp = time.Now().UnixMilli()
+	if update.Volume != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.Volume = &DesiredVolume{
+			Value:     update.Volume.Value,
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.MotionTracking != nil && (*update.MotionTracking != *origin.MotionTracking) {
-		ID++
-		// Assuming DesiredMotionTracking has the same field names as MotionTracking
-		// Modify this to match the actual DesiredMotionTracking struct definition
-		state.MotionTracking.Value = update.MotionTracking
-		state.MotionTracking.ID = ID
-		state.MotionTracking.Timestamp = time.Now().UnixMilli()
+	if update.MotionTracking != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.MotionTracking = &DesiredBoolean{
+			Value:     update.MotionTracking.Value,
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.NightVision != nil && (*update.NightVision != *origin.NightVision) {
-		ID++
-		// Assuming DesiredNightVision has the same field names as NightVision
-		// Modify this to match the actual DesiredNightVision struct definition
-		state.NightVision.Value = update.NightVision
-		state.NightVision.ID = ID
-		state.NightVision.Timestamp = time.Now().UnixMilli()
+	if update.NightVision != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.NightVision = &DesiredBoolean{
+			Value:     update.NightVision.Value,
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
 
-	if update.PrivacyMode != nil && (*update.PrivacyMode != *origin.PrivacyMode) {
-		ID++
-		// Assuming DesiredPrivacyMode has the same field names as PrivacyMode
-		// Modify this to match the actual DesiredPrivacyMode struct definition
-		state.PrivacyMode.Value = update.PrivacyMode
-		state.PrivacyMode.ID = ID
-		state.PrivacyMode.Timestamp = time.Now().UnixMilli()
+	if update.PrivacyMode != nil {
+		epoch, id = nextDesiredVersion(epoch, id)
+		state.PrivacyMode = &DesiredBoolean{
+			Value:     update.PrivacyMode.Value,
+			Epoch:     epoch,
+			ID:        id,
+			Timestamp: now,
+		}
 	}
-	return ID, state
+
+	return id, epoch, state
+}
+
+func (state *DesiredState) MaxEpoch() int64 {
+	maxEpoch := int64(0)
+	if state.Video != nil && state.Video.Epoch > maxEpoch {
+		maxEpoch = state.Video.Epoch
+	}
+	if state.Storage != nil && state.Storage.Epoch > maxEpoch {
+		maxEpoch = state.Storage.Epoch
+	}
+	if state.Record != nil && state.Record.Epoch > maxEpoch {
+		maxEpoch = state.Record.Epoch
+	}
+	if state.MotionDetection != nil && state.MotionDetection.Epoch > maxEpoch {
+		maxEpoch = state.MotionDetection.Epoch
+	}
+	if state.DecibelDetection != nil && state.DecibelDetection.Epoch > maxEpoch {
+		maxEpoch = state.DecibelDetection.Epoch
+	}
+	if state.Cruise != nil && state.Cruise.Epoch > maxEpoch {
+		maxEpoch = state.Cruise.Epoch
+	}
+	if state.Siren != nil && state.Siren.Epoch > maxEpoch {
+		maxEpoch = state.Siren.Epoch
+	}
+	if state.Volume != nil && state.Volume.Epoch > maxEpoch {
+		maxEpoch = state.Volume.Epoch
+	}
+	if state.PrivacyMode != nil && state.PrivacyMode.Epoch > maxEpoch {
+		maxEpoch = state.PrivacyMode.Epoch
+	}
+	if state.NightVision != nil && state.NightVision.Epoch > maxEpoch {
+		maxEpoch = state.NightVision.Epoch
+	}
+	if state.MotionTracking != nil && state.MotionTracking.Epoch > maxEpoch {
+		maxEpoch = state.MotionTracking.Epoch
+	}
+	return maxEpoch
+}
+
+func shouldDeleteDesired(reportedEpoch, reportedID, desiredEpoch, desiredID int64) bool {
+	if reportedID > desiredID {
+		return true
+	}
+	if reportedID == desiredID {
+		return true
+	}
+	return reportedEpoch != desiredEpoch
 }
 
 func (state *DesiredState) Marshal() ([]byte, error) {

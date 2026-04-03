@@ -330,6 +330,7 @@ just pg-clean
 - `conf/app.ini`: 服务配置
 - `conf/things.ini`: 设备配置
 - `http_server/http_route.go`: 路由与中间件
+- `IOT_CORE_STATE_SYNC.md`: IoT Core state / desired state 同步专题分析与修复方案
 - `services/things/`: 设备核心领域
 - `services/storage/`: 存储与凭证核心逻辑
 - `services/user/`: 用户与消息相关逻辑

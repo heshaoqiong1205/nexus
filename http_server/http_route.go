@@ -121,8 +121,6 @@ func Run(config *setting.Server) error {
 	route.POST("/things/device/state", handleState)
 	// Get device desired state
 	route.GET("/things/device/state/desired", fetchDesiredState)
-	// Confirm device desired state
-	route.POST("/things/device/state/desired", confirmDesiredState)
 
     // Use configuration values for server setup
     server := &http.Server{
@@ -473,26 +471,4 @@ func fetchDesiredState(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, SuccessResponse(state))
-}
-
-func confirmDesiredState(c *gin.Context) {
-	deviceID := getDeviceID(c)
-	if deviceID == "" {
-		c.JSON(http.StatusBadRequest, ErrorResponse("Missing device-id header"))
-		return
-	}
-
-	var confirmRequest things.ConfirmDesiredStateRequest
-	if err := c.ShouldBindJSON(&confirmRequest); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse("Invalid request payload"))
-		return
-	}
-
-	// Confirm the device desired state
-	if err := thingsService.ConfirmDesiredState(deviceID, confirmRequest); err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse("Failed to confirm device desired state"))
-		return
-	}
-
-	c.JSON(http.StatusOK, nil)
 }

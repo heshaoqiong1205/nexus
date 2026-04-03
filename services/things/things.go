@@ -8,9 +8,11 @@ import (
 	"errors"
 	"log"
 	"nexus/models"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ThingService struct {
@@ -67,10 +69,6 @@ type DevicesQuery struct {
 	Page      int      `json:"page"`
 	PageSize  int      `json:"page_size"`
 	OrderBy   *string  `json:"order_by"`
-}
-
-type ConfirmDesiredStateRequest struct {
-	LastID int64 `json:"last_id"`
 }
 
 func newServiceRequest(method string, deviceID string, data []byte) *ServiceRequest {
@@ -277,6 +275,27 @@ func (service *ThingService) HandleState(deviceID string, state State) error {
 	// Merge states - only update non-nil fields
 	service.mergeStates(&currentState, state)
 
+	existingModel, existingDesired, hasExisting, err := service.loadDesiredState(deviceID)
+	if err != nil {
+		return err
+	}
+
+	if hasExisting {
+		nextDesired, changed := reconcileDesiredWithReported(existingDesired, &currentState)
+		if changed {
+			stateJSON, err := nextDesired.Marshal()
+			if err != nil {
+				return errors.New("failed to marshal desired state: " + err.Error())
+			}
+			existingModel.State = stateJSON
+			version := existingModel.Version
+			existingModel.Version++
+			if err := service.desiredStateModels.UpdateWithVersion(&existingModel, version); err != nil {
+				return errors.New("failed to update desired state: " + err.Error())
+			}
+		}
+	}
+
 	// Marshal updated state
 	updatedStateData, err := json.Marshal(&currentState)
 	if err != nil {
@@ -296,7 +315,6 @@ func (service *ThingService) HandleState(deviceID string, state State) error {
 	return nil
 }
 
-
 func (service *ThingService) FetchDesiredState(deviceID string) (DesiredState, error) {
 	// Validate device exists
 	_, err := service.deviceModels.Get(deviceID)
@@ -307,8 +325,11 @@ func (service *ThingService) FetchDesiredState(deviceID string) (DesiredState, e
 	// Get the desired state for this device (one per device)
 	desiredState, err := service.desiredStateModels.Get(deviceID)
 	if err != nil {
-		// If no desired state exists, return empty state
-		return DesiredState{}, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// If no desired state exists, return empty state
+			return DesiredState{}, nil
+		}
+		return DesiredState{}, errors.New("failed to get desired state: " + err.Error())
 	}
 
 	// Parse the desired state JSON into State struct
@@ -321,77 +342,31 @@ func (service *ThingService) FetchDesiredState(deviceID string) (DesiredState, e
 }
 
 func (service *ThingService) UpdateDesiredState(deviceID string, state State) error {
-	// Validate device exists
-	device, err := service.deviceModels.Get(deviceID)
-	if err != nil {
-		return errors.New("device not found: " + err.Error())
-	}
-
-	// Validate the state
-	if err := state.Validate(); err != nil {
-		return errors.New("invalid desired state: " + err.Error())
-	}
-
-	var originState State
-	if err := json.Unmarshal(device.State, &originState); err != nil {
-		return errors.New("failed to unmarshal original state: " + err.Error())
-	}
-
-	desiredState, err := service.desiredStateModels.Get(deviceID)
-	if err != nil {
-		// If no desired state exists, create a new one
-		return  errors.New("desired state not found: " + err.Error())
-	}
-
-	// Create a desired state object with differences from the current state
-	lastID, updateDesiredState := NewDesiredState(desiredState.LastDesiredID, &originState, &state)
-
-	if lastID != desiredState.LastDesiredID {
-		stateJSON, err := json.Marshal(updateDesiredState)
-		if err != nil {
-			return errors.New("failed to marshal desired state: " + err.Error())
-		}
-		// Update the desired state in the database
-		desiredState.ID = deviceID
-		desiredState.State = stateJSON
-		desiredState.Status = true
-		desiredState.LastDesiredID = lastID
-
-		if err := service.desiredStateModels.Update(&desiredState); err != nil {
-			return errors.New("failed to update desired state: " + err.Error())
-		}
-		log.Printf("Updated desired state for device %s", deviceID)
-
-	}
-
-	return nil
-}
-
-func (service *ThingService) ConfirmDesiredState(deviceID string, confirmRequest ConfirmDesiredStateRequest) error {
-	for i := 0; i < 5; i++ {
-		if err := service.confirmDesiredState(deviceID, confirmRequest); err != nil {
-			log.Printf("Failed to confirm desired state for device %s (attempt %d): %v", deviceID, i+1, err)
-			continue
-		}
-		return nil
-	}
-	return errors.New("failed to confirm desired state after 5 attempts")
+	return service.updateDesiredStateWithVersion(deviceID, state)
 }
 
 // SetDesiredState sets a new desired state for a device
 func (service *ThingService) SetDesiredState(deviceID string, state State) error {
+	var lastErr error
 	for i := 0; i < 5; i++ {
 		if err := service.updateDesiredStateWithVersion(deviceID, state); err != nil {
+			lastErr = err
+			if !isDesiredStateVersionConflict(err) {
+				return err
+			}
 			log.Printf("Failed to set desired state for device %s (attempt %d): %v", deviceID, i+1, err)
 			continue
 		}
 		return nil
 	}
-	return errors.New("failed to set desired state after 5 attempts")
+	if lastErr != nil {
+		return errors.New("failed to set desired state after 5 attempts")
+	}
+	return nil
 }
 
-// GetDesiredStateHistory returns the history of desired states for a device
-func (service *ThingService) GetDesiredStateHistory(deviceID string, page int, pageSize int) ([]models.DesiredState, error) {
+// GetDesiredState returns the desired state records for a device
+func (service *ThingService) GetDesiredState(deviceID string, page int, pageSize int) ([]models.DesiredState, error) {
 	// Validate device exists
 	_, err := service.deviceModels.Get(deviceID)
 	if err != nil {
@@ -486,32 +461,6 @@ func (service *ThingService) mergeStates(current *State, incoming State) {
 	}
 }
 
-func (service *ThingService) confirmDesiredState(deviceID string, confirmRequest ConfirmDesiredStateRequest) error {
-	// Validate device exists
-	desiredState, err := service.desiredStateModels.Get(deviceID)
-	if err != nil {
-		return errors.New("device not found: " + err.Error())
-	}
-
-	var state DesiredState
-	if err := json.Unmarshal(desiredState.State, &state); err != nil {
-		return errors.New("failed to parse desired state: " + err.Error())
-	}
-
-	state.Confirm(confirmRequest.LastID)
-
-	data, err := state.Marshal()
-	if err != nil {
-		return err
-	}
-	desiredState.State = data
-
-	version := desiredState.Version
-	desiredState.Version = desiredState.Version + 1
-	// With simplified model, we just confirm the desired state for this device
-	return service.desiredStateModels.UpdateWithVersion(&desiredState, version)
-}
-
 func (service *ThingService) updateDesiredStateWithVersion(deviceID string, state State) error {
 	// Validate device exists
 	device, err := service.deviceModels.Get(deviceID)
@@ -528,35 +477,296 @@ func (service *ThingService) updateDesiredStateWithVersion(deviceID string, stat
 		return errors.New("invalid desired state: " + err.Error())
 	}
 
-	// Marshal state to JSON
-	stateJSON, err := json.Marshal(state)
+	existingModel, existingDesired, hasExisting, err := service.loadDesiredState(deviceID)
+	if err != nil {
+		return err
+	}
+
+	lastID := int64(0)
+	lastEpoch := int64(0)
+	if hasExisting {
+		lastID = existingModel.LastDesiredID
+		lastEpoch = existingDesired.MaxEpoch()
+	}
+
+	nextDesired, nextLastID, _, changed := mergeDesiredStateUpdate(existingDesired, lastEpoch, lastID, &state)
+	if !changed {
+		return nil
+	}
+
+	stateJSON, err := nextDesired.Marshal()
 	if err != nil {
 		return errors.New("failed to marshal desired state: " + err.Error())
 	}
 
-	// Get current desired state to determine version
-	currentVersion := 1
-	if existingState, err := service.desiredStateModels.Get(deviceID); err == nil {
-		currentVersion = existingState.Version + 1
+	if hasExisting {
+		existingModel.State = stateJSON
+		existingModel.Status = true
+		existingModel.LastDesiredID = nextLastID
+		version := existingModel.Version
+		existingModel.Version++
+		if err := service.desiredStateModels.UpdateWithVersion(&existingModel, version); err != nil {
+			return errors.New("failed to update desired state: " + err.Error())
+		}
+		log.Printf("Updated desired state for device %s (version %d)", deviceID, existingModel.Version)
+		return nil
 	}
 
-	// Create new desired state (or update existing one)
 	newDesiredState := &models.DesiredState{
-		ID:           deviceID, // DeviceID as primary key
-		State: stateJSON,
-		Version:      currentVersion,
-		Status:       true,
+		ID:            deviceID,
+		State:         stateJSON,
+		Version:       1,
+		Status:        true,
+		LastDesiredID: nextLastID,
+	}
+	if err := service.desiredStateModels.Create(newDesiredState); err != nil {
+		return errors.New("failed to create desired state: " + err.Error())
 	}
 
-	// Try to update existing state first, create if doesn't exist
-	err = service.desiredStateModels.Update(newDesiredState)
-	if err != nil {
-		// If update fails, try create
-		if err := service.desiredStateModels.Create(newDesiredState); err != nil {
-			return errors.New("failed to create desired state: " + err.Error())
+	log.Printf("Created desired state for device %s", deviceID)
+	return nil
+}
+
+func mergeDesiredStateUpdate(existing DesiredState, startEpoch, startID int64, update *State) (DesiredState, int64, int64, bool) {
+	next := existing
+	changed := false
+	currentEpoch := startEpoch
+	currentID := startID
+
+	if update.Video != nil {
+		if !desiredVideoMatches(next.Video, update.Video) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Video: update.Video})
+			next.Video = diff.Video
+			changed = true
 		}
 	}
 
-	log.Printf("Set desired state for device %s (version %d)", deviceID, currentVersion)
-	return nil
+	if update.Storage != nil {
+		if !desiredStorageMatches(next.Storage, update.Storage) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Storage: update.Storage})
+			next.Storage = diff.Storage
+			changed = true
+		}
+	}
+
+	if update.Record != nil {
+		if !desiredRecordMatches(next.Record, update.Record) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Record: update.Record})
+			next.Record = diff.Record
+			changed = true
+		}
+	}
+
+	if update.MotionDetection != nil {
+		if !desiredVMDMatches(next.MotionDetection, update.MotionDetection) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{MotionDetection: update.MotionDetection})
+			next.MotionDetection = diff.MotionDetection
+			changed = true
+		}
+	}
+
+	if update.DecibelDetection != nil {
+		if !desiredDetectionMatches(next.DecibelDetection, update.DecibelDetection) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{DecibelDetection: update.DecibelDetection})
+			next.DecibelDetection = diff.DecibelDetection
+			changed = true
+		}
+	}
+
+	if update.Cruise != nil {
+		if !desiredCruiseMatches(next.Cruise, update.Cruise) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Cruise: update.Cruise})
+			next.Cruise = diff.Cruise
+			changed = true
+		}
+	}
+
+	if update.Siren != nil {
+		if !desiredSirenMatches(next.Siren, update.Siren) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Siren: update.Siren})
+			next.Siren = diff.Siren
+			changed = true
+		}
+	}
+
+	if update.Volume != nil {
+		if !desiredVolumeMatches(next.Volume, update.Volume) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{Volume: update.Volume})
+			next.Volume = diff.Volume
+			changed = true
+		}
+	}
+
+	if update.PrivacyMode != nil {
+		if !desiredBooleanMatches(next.PrivacyMode, update.PrivacyMode) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{PrivacyMode: update.PrivacyMode})
+			next.PrivacyMode = diff.PrivacyMode
+			changed = true
+		}
+	}
+
+	if update.NightVision != nil {
+		if !desiredBooleanMatches(next.NightVision, update.NightVision) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{NightVision: update.NightVision})
+			next.NightVision = diff.NightVision
+			changed = true
+		}
+	}
+
+	if update.MotionTracking != nil {
+		if !desiredBooleanMatches(next.MotionTracking, update.MotionTracking) {
+			var diff DesiredState
+			currentID, currentEpoch, diff = NewDesiredStateWithEpoch(currentEpoch, currentID, &State{MotionTracking: update.MotionTracking})
+			next.MotionTracking = diff.MotionTracking
+			changed = true
+		}
+	}
+
+	return next, currentID, currentEpoch, changed
+}
+
+func (service *ThingService) loadDesiredState(deviceID string) (models.DesiredState, DesiredState, bool, error) {
+	existingModel, err := service.desiredStateModels.Get(deviceID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.DesiredState{}, DesiredState{}, false, nil
+		}
+		return models.DesiredState{}, DesiredState{}, false, errors.New("failed to load desired state: " + err.Error())
+	}
+
+	var existingDesired DesiredState
+	if len(existingModel.State) > 0 {
+		if err := json.Unmarshal(existingModel.State, &existingDesired); err != nil {
+			return models.DesiredState{}, DesiredState{}, false, errors.New("failed to parse existing desired state: " + err.Error())
+		}
+	}
+
+	return existingModel, existingDesired, true, nil
+}
+
+func desiredVideoMatches(desired *DesiredVideo, update *Video) bool {
+	return desired != nil && desired.Video.Equal(update)
+}
+
+func desiredStorageMatches(desired *DesiredStorage, update *Storage) bool {
+	return desired != nil && desired.Storage.Equal(update)
+}
+
+func desiredRecordMatches(desired *DesiredRecord, update *Record) bool {
+	return desired != nil && desired.Record.Equal(update)
+}
+
+func desiredVMDMatches(desired *DesiredVMD, update *VMD) bool {
+	return desired != nil && desired.VMD.Equal(update)
+}
+
+func desiredDetectionMatches(desired *DesiredDecibelDetection, update *Detection) bool {
+	return desired != nil && desired.Detection.Equal(update)
+}
+
+func desiredCruiseMatches(desired *DesiredCruise, update *Cruise) bool {
+	return desired != nil && desired.Cruise.Equal(update)
+}
+
+func desiredSirenMatches(desired *DesiredSiren, update *Siren) bool {
+	return desired != nil && desired.Siren.Equal(update)
+}
+
+func desiredVolumeMatches(desired *DesiredVolume, update *IntValue) bool {
+	return desired != nil && intPtrEqual(desired.Value, intValue(update))
+}
+
+func desiredBooleanMatches(desired *DesiredBoolean, update *BoolValue) bool {
+	return desired != nil && boolPtrEqual(desired.Value, boolValue(update))
+}
+
+func reportedHasVersion(meta StateMeta) bool {
+	return meta.ID != nil && meta.Epoch != nil
+}
+
+func reconcileDesiredWithReported(existing DesiredState, reported *State) (DesiredState, bool) {
+	next := existing
+	changed := false
+
+	if reported.Video != nil && next.Video != nil && reportedHasVersion(reported.Video.StateMeta) &&
+		shouldDeleteDesired(*reported.Video.Epoch, *reported.Video.ID, next.Video.Epoch, next.Video.ID) {
+		next.Video = nil
+		changed = true
+	}
+
+	if reported.Storage != nil && next.Storage != nil && reportedHasVersion(reported.Storage.StateMeta) &&
+		shouldDeleteDesired(*reported.Storage.Epoch, *reported.Storage.ID, next.Storage.Epoch, next.Storage.ID) {
+		next.Storage = nil
+		changed = true
+	}
+
+	if reported.Record != nil && next.Record != nil && reportedHasVersion(reported.Record.StateMeta) &&
+		shouldDeleteDesired(*reported.Record.Epoch, *reported.Record.ID, next.Record.Epoch, next.Record.ID) {
+		next.Record = nil
+		changed = true
+	}
+
+	if reported.MotionDetection != nil && next.MotionDetection != nil && reportedHasVersion(reported.MotionDetection.StateMeta) &&
+		shouldDeleteDesired(*reported.MotionDetection.Epoch, *reported.MotionDetection.ID, next.MotionDetection.Epoch, next.MotionDetection.ID) {
+		next.MotionDetection = nil
+		changed = true
+	}
+
+	if reported.DecibelDetection != nil && next.DecibelDetection != nil && reportedHasVersion(reported.DecibelDetection.StateMeta) &&
+		shouldDeleteDesired(*reported.DecibelDetection.Epoch, *reported.DecibelDetection.ID, next.DecibelDetection.Epoch, next.DecibelDetection.ID) {
+		next.DecibelDetection = nil
+		changed = true
+	}
+
+	if reported.Cruise != nil && next.Cruise != nil && reportedHasVersion(reported.Cruise.StateMeta) &&
+		shouldDeleteDesired(*reported.Cruise.Epoch, *reported.Cruise.ID, next.Cruise.Epoch, next.Cruise.ID) {
+		next.Cruise = nil
+		changed = true
+	}
+
+	if reported.Siren != nil && next.Siren != nil && reportedHasVersion(reported.Siren.StateMeta) &&
+		shouldDeleteDesired(*reported.Siren.Epoch, *reported.Siren.ID, next.Siren.Epoch, next.Siren.ID) {
+		next.Siren = nil
+		changed = true
+	}
+
+	if reported.Volume != nil && next.Volume != nil && reportedHasVersion(reported.Volume.StateMeta) &&
+		shouldDeleteDesired(*reported.Volume.Epoch, *reported.Volume.ID, next.Volume.Epoch, next.Volume.ID) {
+		next.Volume = nil
+		changed = true
+	}
+
+	if reported.PrivacyMode != nil && next.PrivacyMode != nil && reportedHasVersion(reported.PrivacyMode.StateMeta) &&
+		shouldDeleteDesired(*reported.PrivacyMode.Epoch, *reported.PrivacyMode.ID, next.PrivacyMode.Epoch, next.PrivacyMode.ID) {
+		next.PrivacyMode = nil
+		changed = true
+	}
+
+	if reported.NightVision != nil && next.NightVision != nil && reportedHasVersion(reported.NightVision.StateMeta) &&
+		shouldDeleteDesired(*reported.NightVision.Epoch, *reported.NightVision.ID, next.NightVision.Epoch, next.NightVision.ID) {
+		next.NightVision = nil
+		changed = true
+	}
+
+	if reported.MotionTracking != nil && next.MotionTracking != nil && reportedHasVersion(reported.MotionTracking.StateMeta) &&
+		shouldDeleteDesired(*reported.MotionTracking.Epoch, *reported.MotionTracking.ID, next.MotionTracking.Epoch, next.MotionTracking.ID) {
+		next.MotionTracking = nil
+		changed = true
+	}
+
+	return next, changed
+}
+
+func isDesiredStateVersionConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "desired state version conflict")
 }

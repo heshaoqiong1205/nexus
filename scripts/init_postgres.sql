@@ -170,6 +170,19 @@ CREATE TABLE IF NOT EXISTS cloud_recordings (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Desired States table for device state management
+CREATE TABLE IF NOT EXISTS desired_states (
+    id VARCHAR(255) PRIMARY KEY, -- DeviceID as primary key (one desired state per device)
+    state JSONB NOT NULL, -- JSON format desired state
+    version INTEGER DEFAULT 1,
+    status BOOLEAN DEFAULT true,
+    last_desired_id INTEGER,
+    confirmed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (id) REFERENCES devices(id) ON DELETE CASCADE
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status);
 CREATE INDEX IF NOT EXISTS idx_devices_online ON devices(online);
@@ -181,6 +194,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_cloud_recordings_device_id ON cloud_recordings(device_id);
 CREATE INDEX IF NOT EXISTS idx_cloud_recordings_begin_time ON cloud_recordings(begin_time);
 CREATE INDEX IF NOT EXISTS idx_cloud_storages_device_id ON cloud_storages(device_id);
+CREATE INDEX IF NOT EXISTS idx_desired_states_status ON desired_states(status);
+CREATE INDEX IF NOT EXISTS idx_desired_states_version ON desired_states(version);
 
 -- Insert some initial data for testing
 INSERT INTO products (id, name, description, required_features, status, created_at, updated_at)
