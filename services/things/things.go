@@ -9,6 +9,7 @@ import (
 	"log"
 	"nexus/models"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,27 @@ type ThingService struct {
 	licenseModels      models.ILicenseModels
 	productModels      models.IProductModels
 	desiredStateModels models.IDesiredStateModels
+}
+
+type RPCTransport interface {
+	Call(request *ServiceRequest) (*ServiceResponse, error)
+}
+
+var (
+	defaultRPCTransport   RPCTransport
+	defaultRPCTransportMu sync.RWMutex
+)
+
+func SetDefaultRPCTransport(transport RPCTransport) {
+	defaultRPCTransportMu.Lock()
+	defer defaultRPCTransportMu.Unlock()
+	defaultRPCTransport = transport
+}
+
+func getDefaultRPCTransport() RPCTransport {
+	defaultRPCTransportMu.RLock()
+	defer defaultRPCTransportMu.RUnlock()
+	return defaultRPCTransport
 }
 
 type ServiceRequest struct {
@@ -221,6 +243,10 @@ func (service *ThingService) RPC(deviceID, method string, payload interface{}, r
 }
 
 func (service *ThingService) rpc(request *ServiceRequest) (*ServiceResponse, error) {
+	if transport := getDefaultRPCTransport(); transport != nil {
+		return transport.Call(request)
+	}
+
 	device, err := service.deviceModels.Get(request.DeviceID)
 	if err != nil {
 		return nil, errors.New("device not found")
@@ -237,6 +263,25 @@ func (service *ThingService) rpc(request *ServiceRequest) (*ServiceResponse, err
 }
 
 func (service *ThingService) HandleEvent(deviceID string, event Event) error {
+	log.Printf("Received event from device %s: type=%s timestamp=%d", deviceID, event.Type, event.Timestamp)
+	return nil
+}
+
+func (service *ThingService) HandleStatus(deviceID string, online bool, updatedAt time.Time) error {
+	if deviceID == "" {
+		return errors.New("device ID cannot be empty")
+	}
+
+	device, err := service.deviceModels.Get(deviceID)
+	if err != nil {
+		return errors.New("device not found: " + err.Error())
+	}
+
+	device.Online = online
+	device.UpdatedAt = updatedAt
+	if err := service.deviceModels.Update(&device); err != nil {
+		return errors.New("failed to update device online status: " + err.Error())
+	}
 	return nil
 }
 

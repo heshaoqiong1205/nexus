@@ -4,6 +4,7 @@
         "datatypes",
         "gorm",
         "IDGV",
+        "paho",
         "PCMA",
         "PCMU",
         "PGPASSWORD",
